@@ -73,12 +73,13 @@ Python 3.11 以上，需要 UnityPy、zstandard、Pillow。adb 用 platform-tool
 差异 10 处：`saus/raw` 磁盘名是 hash 而非明文、`.nab` 可直接出音频、无动态头像框族、
 无莱彻躯干高模、无 `StaticData.pack` 等。
 
-**低清版取不全 —— 已定论，不是没解出来。** `256 + Σ(idx.size) == store.cdb` 字节数，五桶全部闭合、零间隙，
-说明 `.idx` 100% 覆盖物理字节，查不到的块物理上就不存在，`pak_offset` 反推这条路是死的。
+**低清版取不全 —— 已定论，不是没解出来。** 安卓侧 `chunks` 192,232 条、`idx` 只索引 178,332 条，
+差的 13,900 个全是低清版 `(sd)`（压缩后 0.49 GiB）。PC 端实测 `256 + Σ(idx.size) == store.cdb` 字节数，
+五桶全部闭合、零间隙，说明 `.idx` 100% 覆盖物理字节，查不到的块物理上就不存在，`pak_offset` 反推这条路是死的。
 只能靠游戏内按需下载补。详见 [docs/pc/01-实测.md §6](docs/pc/01-实测.md)。
 
 **语音格式已解。** `.nab` 是 bundle 后缀，内部就是标准 `AudioClip`，UnityPy 直接出 wav（48 kHz / 16 bit）。
-安卓侧未实测，PC 侧已验。
+语音三桶各 2,190 个加 saus 1 个、约 12 GB。安卓侧未实测，PC 侧已验。
 
 **静态表要另想办法。** `StaticData.pack` 的双层 AES 在部分版本上无法用已知方式解开，替代路径是从进程内存 dump。
 
