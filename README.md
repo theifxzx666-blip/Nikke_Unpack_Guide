@@ -56,7 +56,7 @@ adb pull /sdcard/_t ./core_catalog.ndb
 | [docs/03-output.md](docs/03-output.md) | 目录骨架、命名规则、去重、跨服对齐 |
 | [docs/04-tooling.md](docs/04-tooling.md) | 一键工具的接口设计，尚未实现 |
 | [docs/android/](docs/android/) | 安卓链路：设备、容器、取件 |
-| [docs/pc/](docs/pc/) | PC 端，未开始 |
+| [docs/pc/](docs/pc/) | PC 端实测结论（2026-10-29 完成，43 类命中 38） |
 | [AGENTS.md](AGENTS.md) | 给 AI 智能体的操作说明 |
 
 ## 环境
@@ -69,11 +69,16 @@ Python 3.11 以上，需要 UnityPy、zstandard、Pillow。adb 用 platform-tool
 
 ## 已知限制
 
-**只覆盖安卓。** PC 端的链路还没实测，`docs/pc/` 只有待办清单。
+**PC 端已实测，结论在 [docs/pc/](docs/pc/)。** 容器格式与安卓同源，43 类命中 38。
+差异 10 处：`saus/raw` 磁盘名是 hash 而非明文、`.nab` 可直接出音频、无动态头像框族、
+无莱彻躯干高模、无 `StaticData.pack` 等。
 
-**低清版取不全。** `store.cdb.idx` 缺 13,900 个块，全是 `(sd)` 低模，压缩后 0.49 GiB。高清版 100% 覆盖。
+**低清版取不全 —— 已定论，不是没解出来。** `256 + Σ(idx.size) == store.cdb` 字节数，五桶全部闭合、零间隙，
+说明 `.idx` 100% 覆盖物理字节，查不到的块物理上就不存在，`pak_offset` 反推这条路是死的。
+只能靠游戏内按需下载补。详见 [docs/pc/01-实测.md §6](docs/pc/01-实测.md)。
 
-**语音没解过。** 三桶共 6,570 个 `.nab`，约 12 GB，只知道是自研封装，没验证出格式。
+**语音格式已解。** `.nab` 是 bundle 后缀，内部就是标准 `AudioClip`，UnityPy 直接出 wav（48 kHz / 16 bit）。
+安卓侧未实测，PC 侧已验。
 
 **静态表要另想办法。** `StaticData.pack` 的双层 AES 在部分版本上无法用已知方式解开，替代路径是从进程内存 dump。
 

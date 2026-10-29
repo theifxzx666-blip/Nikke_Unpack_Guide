@@ -130,6 +130,31 @@ pak_n 起点 = 256 + Σ_{i<n} Σ(compressed_size of pak_i)
 
 `chunks.pak_offset` 不是这个紧密偏移。它是原 pak 文件内的偏移，pak 内部存在空隙，`max(pak_offset + comp)` 比 `Σcomp` 大 25 万字节量级。所以不能用 `pak_offset` 直接去 `store.cdb` 里捞，必须走 idx。
 
+### idx 是否覆盖全量物理字节 —— 一条可自证的校验
+
+PC 端实测（[../pc/01-实测.md](../pc/01-实测.md)）给出了判断「缺块是索引漏了，还是字节本来就不在」的方法：
+
+```python
+tot = sum(size for _, size in idx.values())
+assert 256 + tot == os.path.getsize('store.cdb')      # 五桶实测全部相等
+# 再把 idx 的 (pos, size) 按 pos 排序，逐段检查 pos == 上一段结束位置，间隙数应为 0
+```
+
+两条都成立（差 0、间隙 0）⇒ **idx 100% 覆盖物理字节**，`idx` 查不到的 chunk 物理上就不存在。
+这时 `pak_offset` 反推没有任何意义，缺块只能靠游戏内按需下载补。
+
+若某桶这条校验不闭合，说明确实存在未索引区段，那才值得去试 `pak_offset` 换算。
+
+顺带一个副产物：每个 pak 在 `store.cdb` 内的基址可以反推出来 ——
+
+```python
+base[pak] = mode(idx[hash].pos - chunks.pak_offset)   # 对同一 pak 的全部块取众数
+```
+
+PC 端实测 `base` 首尾严格相接（`base[n+1] = base[n] + Σcomp[n]`）**只在前几个 pak 成立**，
+一旦中间有未下载的块，后面所有 pak 的 base 会整体前移，偏移量恰好等于缺块体积之和（三个 pak 实测差 0）。
+⇒ **不要用累加 `Σcomp` 推 base，必须逐 pak 从 idx 反推。**
+
 ## 数据块
 
 每块是单帧 zstd，解压目标长度等于 `chunks.original_size`。

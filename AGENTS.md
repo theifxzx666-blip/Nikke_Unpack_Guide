@@ -16,7 +16,12 @@
 
 **二、导出成功不等于产物正确。** UnityPy 对一批包会导出不动的模型、内容错位的 bundle、缺件的动画，三种情况都不报错。必须打自检数字：模型看 `objects / triangles / vertices / ratio`，要求 `ratio ≥ 1.5`；动画看通道数大于 0；拼装看 `file_offset == 已写入长度`。看不到数字就当失败。
 
-**三、索引不覆盖全量块。** `store.cdb.idx` 只索引 178,332 个块，而 `chunks` 表有 192,232 条，差的 13,900 个全是低清版 `(sd)`。取高清版不受影响，取低清版会遇到「chunk 不在 idx」。这个缺口还没解决，遇到时按未知处理。
+**三、索引不覆盖全量块。** `store.cdb.idx` 只索引 178,332 个块，而 `chunks` 表有 192,232 条，差的 13,900 个全是低清版 `(sd)`。取高清版不受影响，取低清版会遇到「chunk 不在 idx」。
+
+PC 端已把这条查到定论（[docs/pc/01-实测.md §6](docs/pc/01-实测.md)）：
+`256 + Σ(idx.size)` 与 `store.cdb` 实际字节数五桶全部相等、索引区间零间隙
+⇒ **`.idx` 100% 覆盖物理字节，查不到的块物理上不存在**，用 `pak_offset` 反推是死路，只能靠游戏内按需下载补。
+遇到低清缺失时不必再尝试从 `pak_offset` 绕过，直接按缺失处理。
 
 ## 文档地图
 
@@ -30,7 +35,7 @@
 | [docs/android/02-containers.md](docs/android/02-containers.md) | 要写解密或解析代码 |
 | [docs/android/03-fetch.md](docs/android/03-fetch.md) | 要写取件脚本，或取件产物内容错乱 |
 | [tools/README.md](tools/README.md) | 搭环境 |
-| [docs/pc/README.md](docs/pc/README.md) | 有人问 PC 端。当前只有待办清单，没有方案 |
+| [docs/pc/README.md](docs/pc/README.md) | 有人问 PC 端。**已实测**，结论与差异清单在 [docs/pc/01-实测.md](docs/pc/01-实测.md) |
 
 只回答具体问题的话，读一篇就够，不必通读。
 

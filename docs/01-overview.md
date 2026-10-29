@@ -186,7 +186,11 @@ _拆包_<日期>\
 | :--- | :--- | :--- |
 | `<桶>/catalog.ndb` | `4e4b4442` | `NKDB` |
 | `addressables/catalog.db` | `4e4b444201000000` | `NKDB\0\0\0\1` |
+| `<桶>/chunk/store.cdb` | `43424c42` | `CBLB`，随后 4 B 版本、4 B 零、16 B 块哈希，补零到 256 |
+| `<桶>/chunk/store.cdb.idx` | `43494458` | `CIDX` |
 | `StaticData.pack` | `3c4c82df` | 无魔数，正常，本身是 AES 密文 |
+
+`store.cdb` 与 `.idx` 两行是 PC 端实测补入的（[pc/01-实测.md](pc/01-实测.md)），安卓侧同构，可同法校验。
 
 ---
 
