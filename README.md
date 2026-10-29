@@ -56,7 +56,7 @@ adb pull /sdcard/_t ./core_catalog.ndb
 | [docs/03-output.md](docs/03-output.md) | 目录骨架、命名规则、去重、跨服对齐 |
 | [docs/04-tooling.md](docs/04-tooling.md) | 一键工具的接口设计，尚未实现 |
 | [docs/android/](docs/android/) | 安卓链路：设备、容器、取件 |
-| [docs/pc/](docs/pc/) | PC 端实测结论（2026-10-29 完成，43 类命中 38） |
+| [docs/pc/](docs/pc/) | PC 端实测结论（2026-10-29 完成，43 类有产物 37、族名命中 38） |
 | [AGENTS.md](AGENTS.md) | 给 AI 智能体的操作说明 |
 
 ## 环境
@@ -69,7 +69,7 @@ Python 3.11 以上，需要 UnityPy、zstandard、Pillow。adb 用 platform-tool
 
 ## 已知限制
 
-**PC 端已实测，结论在 [docs/pc/](docs/pc/)。** 容器格式与安卓同源，43 类命中 38。
+**PC 端已实测，结论在 [docs/pc/](docs/pc/)。** 容器格式与安卓同源，43 类有产物 37（族名命中 38）。
 差异 10 处：`saus/raw` 磁盘名是 hash 而非明文、`.nab` 可直接出音频、无动态头像框族、
 无莱彻躯干高模、无 `StaticData.pack` 等。
 
