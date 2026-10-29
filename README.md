@@ -1,78 +1,80 @@
 # NIKKE 客户端拆包方案
 
-从安卓客户端提取美术、文本、音频资源的一套工程方案。覆盖设备路径、容器格式、定向取件、分类落盘全流程。
+从客户端提资源的一套工程方案，覆盖五层：清单 → 定位 → 取件 → 导出 → 落盘。
+文中数字均为实测值，出处标在对应文档。
 
-内容来自多次实际拆包，所有数字都是实测值。
+**核心是拆包这一条主链**；每期版更的增量提取，是在主链上加两步的扩展场景，不是另一套方案。
 
-## 解决什么问题
+## 概述
 
-四个问题，按实际拆包的先后顺序排列：**先知道要什么，再只取那部分，再确认取到的东西可信，最后让产物能被别人接手。**
-每个问题下面写清三件事：具体症状、用的机制、判定是否解决的标准。
+读法：先看框架确认有哪几层，再按层往下走。只取某个资源，走完 ①~⑤；要做版更增量，再加基线快照与 ID 差集。
 
-### 1. 增量——这期到底新增了哪些文件
+| 顺序 | 看什么 | 要解决的事 | 去哪看 |
+| :-: | :--- | :--- | :--- |
+| 1 | 框架 | 一共几层、主链与场景是什么关系 | 本文下一节 |
+| 2 | 容器 | 三个文件头：`catalog.ndb` / `store.cdb` / `.idx` | [02-containers](docs/android/02-containers.md) |
+| 3 | 清单 | 资源键怎么一路串到块级偏移 | [03-fetch](docs/android/03-fetch.md) |
+| 4 | 取件 | 只切需要的那几段，怎么校验 | [03-fetch](docs/android/03-fetch.md) |
+| 5 | 落盘 | 目录骨架、命名四条、溯源映射 | [03-output](docs/03-output.md) |
+| 6 | 版更 | 主链上补哪两步 | 本文「版更增量提取」 |
 
-**症状**：catalog 里十几万条资源键，官方公告只说「新增活动」，不说新增哪些文件，人工翻图看不出改动。
+## 框架
 
-**不能用键做差集**，两个方向都会错：
-
-- 立绘这类一资源一个 bundle，键里带内容 hash（`…_c010_00_f17169d8….bundle`），重新打包后同一张图的键就变了 → 报成「新增」，假阳性
-- 头像框、称号这类是**整表打成一个 bundle**（本期 `icons-user_frame(hd)` 258 个 Sprite、`icons-user_title` 90 个），键名不变、只换 hash → 报成「无变化」，假阴性
-
-**做法**：差集单位取资源 ID，不取 bundle 键。每次版本落一份基线快照（全量键 + 各桶文件 hash + cache 清单 + uc catalog 键），下一版与基线做 ID 集合差，得新增 / 消失 / 变更三张表；对整表打包的族再下沉一层，做 Sprite 级与 `Locale_*` 文本层双向核对。
-
-**判据**：新增列表能落到具体资源键；整表族能给出条目数。本期实测新增 6 个头像框、2 个称号，依据是 `uf_name_*` 239→245 与 `title_*_name` 75→77 两个方向互证，不是靠看图。
-
-### 2. 取件——只要 200 MB 立绘，不拉 15 GB 整包
-
-**症状**：资源被打成约 28 万个块散在五个桶里，单桶就是 GB 级（core 7.17 / dp 14.46 / fd 2.27 / ja 4.43 GB），一个 bundle 的块还可能横跨两个 pak。整包拉一遍要几十 GB 和数小时。
-
-**做法**：四张表逐级收窄到块级，每级只用上一级的输出：
+五层，每层只依赖上一层：
 
 ```
-files_chunktype   资源键 → 文件 hash
-      ↓
-chunk_file_map    文件 → 块（按 file_offset 定序）
-      ↓
-chunks            块 → pak_id + pak 内偏移 + 压缩尺寸
-      ↓
-store.cdb.idx     hash → 数据体内位置 + 长度
+资源键  c010_00 · icn_..._frame · Locale_Skill
+   │
+   ├─ ① 清单   catalog.ndb → SQLite（七表）                     设备侧
+   ├─ ② 定位   store.cdb.idx（CIDX）→ 数据体内偏移与长度         设备侧
+   ├─ ③ 取件   store.cdb（CBLB）→ 切块 → zstd → 按偏移拼接       设备 → PC
+   ├─ ④ 导出   UnityFS → UnityPy → PNG / GLB / WAV / TSV         PC
+   └─ ⑤ 落盘   骨架 + 命名四条 + 溯源映射                         PC
 ```
 
-拿到块级偏移后只切这几段：安卓侧 `dd` 分块导出再 `pull`（4096 对齐、断批重试），PC 侧按 idx 偏移直接读。取件体积 = 目标资源压缩块之和，与桶体积无关。
+| 层 | 关键对象 | 文档 |
+| :-: | :--- | :--- |
+| ① | 七表：`paks` / `groups_chunktype` / `groups_rawtype` / `files_chunktype` / `chunks` / `chunk_file_map` / `files_rawtype` | [02-containers](docs/android/02-containers.md) |
+| ② | `store.cdb.idx`：`CIDX` + 28 B/条（小端，与 NKDB 的大端相反） | 同上 |
+| ③ | `store.cdb`：`CBLB` + 256 B 头 + 裸 zstd 帧紧密拼接 | [03-fetch](docs/android/03-fetch.md) |
+| ④ | 43 类资源的键规律、桶、导出形态 | [02-catalog](docs/02-catalog.md) |
+| ⑤ | A/B/C 三种目录形态、命名四条、改名映射 | [03-output](docs/03-output.md) |
 
-**判据**：解压后双向校验 —— `len(data) == original_size` **且** `file_offset == 已写入长度`，两道都过才算取到。zstd 对截断帧会「成功」返回部分数据，只判「解压没报错」会把残缺包当好包。
+安卓与 PC 同源，差异见 [docs/pc/](docs/pc/)。
 
-### 3. 归因——分清「它没有」和「我没取到」
+## 拆包（主链）
 
-**症状**：取件失败有三类成因 —— 键不存在、块未下发、偏移算错。混在一起就会反复重试拿不到的东西，或者把算错的偏移写成「资源缺失」进报告。
+阶段 0–6，每阶段一个判据，不过就停。
 
-**做法**：先用全桶自证切掉「块未下发」这一类。`256 + Σ(idx.size)` 必须等于 `store.cdb` 实际字节数，闭合且区间无间隙 ⇒ idx 覆盖全部物理字节，查不到的块物理上不存在，不必再从 `pak_offset` 找绕路。catalog 条目数与 idx 条目数的差，就是「已登记未下发」，单独登记成缺口。
+| 阶段 | 做什么 | 判据 |
+| :-: | :--- | :--- |
+| 0 环境自检 | 设备、包名、版本三要素、下载是否收尾、七桶 revision、工具链 | `ranges` 与 `raw` 为空；`adb devices` 为 `device` 而非 `unauthorized` |
+| 1 基线对齐 | 取上一版全量键快照 | 新旧 `catalog.ndb` 大小与键数可比 |
+| 2 增量判定 | ID 集合差 | 新增与消失都能解释 |
+| 3 定向取件 | 四表串到块级，只切需要的段 | `len == original_size` 且 `file_offset` 连续 |
+| 4 导出校验 | UnityPy / glTF / 文本解析 | 贴图对象数与张数一致、模型 `ratio ≥ 1.5`、文本不可归组为 0 |
+| 5 分类落盘 | 骨架 + 命名 + 映射 | 任一产物可反查资源键 |
+| 6 总结入库 | 说明文档、联系表、入库登记、索引三件套 | 登记含 MD5；索引三件套齐（总清单 md / 资源库清单 xlsx / 代号对照表 xlsx） |
 
-**判据**：五桶差 0、间隙 0；缺口能逐条归因到族与体积。本期 13,900 个缺口全部是低清版，可拆成 `spotmonster(sd)` 9,746 + `spotbackground(sd)` 5,631 + 少量 sd atlas，压缩后 0.49 GiB——而不是一句「低清没解出来」。
+细节与踩坑见 [docs/01-overview.md](docs/01-overview.md)，设备侧见 [docs/android/01-device.md](docs/android/01-device.md)。
 
-### 4. 交接——拆包不难，难的是每次都拆得一样
+## 版更增量提取（扩展场景）
 
-**症状**：同一套资源换个时间跑，目录层级、命名、去重规则都会变；产物只有图片没有来源，答不出「这张图对应哪个资源键、哪一版、哪个包」。于是每期都得重新问人，交付件没人敢接。
+主链不动，只加两步、补一处深挖。对应 [模式 B](docs/01-overview.md)。
 
-**做法**：固定三样东西 —— 目录骨架（A/B/C 三种模式，按读者要问的问题两段式切，不按采集管线切）、命名四条（目录去前导零、文件名留零、无官方名加 `_未定名_`、下游不带 `_tex`）、**一份改名与溯源映射**（采集目录 ↔ 入库目录 ↔ 资源键 ↔ 来源 pak / 块 hash）。技术中间产物统一收进 `_构建\` 或 `_源料\`，可整块删掉重跑。
+| 环节 | 主链 | 版更场景 |
+| :--- | :--- | :--- |
+| 基线 | 无 | 每版落快照：全量键 + 各桶文件 hash + cache 清单 + uc catalog 键 |
+| 定位资源 | 按需求给正则 | 与基线做 ID 集合差 → 新增 / 消失 / 变更三张表 |
+| 整表族 | 按族取即可 | 再下沉一层：Sprite 级 + `Locale_*` 文本层双向核 |
 
-**判据**：同一份输入重跑，产物路径与文件数完全一致；任意一个产物文件能反查回资源键与版本指纹（PC 端没有 `dumpsys`，改用文件指纹）。
+差集单位是资源 ID，不是 bundle 键，两个方向的错都要避开：
 
-## 链路
+- 一资源一 bundle，键里带内容 hash（`…_c010_00_f17169d8….bundle`），重打包后键变 → 假阳性
+- 整表打包（`icons-user_frame(hd)` 258 Sprite、`icons_user_title` 90 Sprite），键不变只换 hash → 假阴性
 
-```
-设备                     PC
-──────────────────────────────────────────────────────
-catalog.ndb  ──解 NKDB──>  SQLite 清单，资源键 → [块, 文件内偏移]
-store.cdb.idx ──解 CIDX──>  hash → 数据体内位置
-store.cdb    ──dd 切块──>  zstd 解压 → 按偏移拼接 → .bundle
-                                                    ↓
-                                              UnityPy 导出
-                                                    ↓
-                                            PNG / GLB / TSV / WAV
-```
-
-四个环节各自有坑，详见 [docs/android/](docs/android/)。
+本期实测：`uf_name_*` 239→245、`title_*_name` 75→77，对应 6 个头像框、2 个称号。
+判定规则与反例见 [docs/01-overview.md](docs/01-overview.md)。
 
 ## 快速开始
 
@@ -95,39 +97,29 @@ adb pull /sdcard/_t ./core_catalog.ndb
 
 | 文档 | 内容 |
 | :--- | :--- |
-| [docs/01-overview.md](docs/01-overview.md) | 六阶段流程、三种工作模式、增量判定 |
+| [docs/01-overview.md](docs/01-overview.md) | 阶段 0~6、三种工作模式、增量判定与反例 |
 | [docs/02-catalog.md](docs/02-catalog.md) | 43 类资源的键规律、桶、落盘目录、规格 |
 | [docs/03-output.md](docs/03-output.md) | 目录骨架、命名规则、去重、跨服对齐 |
 | [docs/04-tooling.md](docs/04-tooling.md) | 一键工具的接口设计，尚未实现 |
 | [docs/android/](docs/android/) | 安卓链路：设备、容器、取件 |
-| [docs/pc/](docs/pc/) | PC 端实测结论（2026-10-29 完成，43 类有产物 37、族名命中 38） |
+| [docs/pc/](docs/pc/) | PC 端实测结论（43 类有产物 37、族名命中 38） |
 | [AGENTS.md](AGENTS.md) | 给 AI 智能体的操作说明 |
 
 ## 环境
 
-Python 3.11 以上，需要 UnityPy、zstandard、Pillow。adb 用 platform-tools。
-
-设备的读取权限视 ROM 而定。国产 ROM 把 `Android/data` 对 adb shell 也封了，要用 `su` 中转；原生 ROM 通常能直接 pull。解密环节不需要 root，那是拿到字节之后在 PC 上做的。
-
-版本与安装细节见 [tools/README.md](tools/README.md)。
+Python 3.11 以上，UnityPy / zstandard / Pillow，adb 用 platform-tools。
+国产 ROM 把 `Android/data` 对 adb shell 也封了，需 `su` 中转；原生 ROM 可直接 pull。解密在 PC 侧做，不需要 root。
+安装细节见 [tools/README.md](tools/README.md)。
 
 ## 已知限制
 
-**PC 端已实测，结论在 [docs/pc/](docs/pc/)。** 容器格式与安卓同源，43 类有产物 37（族名命中 38）。
-差异 10 处：`saus/raw` 磁盘名是 hash 而非明文、`.nab` 可直接出音频、无动态头像框族、
-无莱彻躯干高模、无 `StaticData.pack` 等。
-
-**低清版取不全 —— 已定论，不是没解出来。** 安卓侧 `chunks` 192,232 条、`idx` 只索引 178,332 条，
-差的 13,900 个全是低清版 `(sd)`（压缩后 0.49 GiB）。PC 端实测 `256 + Σ(idx.size) == store.cdb` 字节数，
-五桶全部闭合、零间隙，说明 `.idx` 100% 覆盖物理字节，查不到的块物理上就不存在，`pak_offset` 反推这条路是死的。
-只能靠游戏内按需下载补。详见 [docs/pc/01-实测.md §6](docs/pc/01-实测.md)。
-
-**语音格式已解。** `.nab` 是 bundle 后缀，内部就是标准 `AudioClip`，UnityPy 直接出 wav（48 kHz / 16 bit）。
-语音三桶各 2,190 个加 saus 1 个、约 12 GB。安卓侧未实测，PC 侧已验。
-
-**静态表要另想办法。** `StaticData.pack` 的双层 AES 在部分版本上无法用已知方式解开，替代路径是从进程内存 dump。
-
-**没有现成工具。** 各环节都有可用脚本，但没有统一入口，需要按文档自己拼。
+| 项 | 结论 | 详见 |
+| :--- | :--- | :--- |
+| PC 端 | 容器同源；43 类有产物 37（族名命中 38），差异 10 处：`saus/raw` 磁盘名是 hash、`.nab` 直出音频、无动态头像框族、无莱彻躯干高模、无 `StaticData.pack` | [docs/pc/](docs/pc/) |
+| 低清版 | 安卓 `chunks` 192,232 / `idx` 178,332，差 13,900 全为 `(sd)`，0.49 GiB。PC 实测 `256 + Σ(idx.size)` 五桶闭合、零间隙 ⇒ 查不到的块物理上不存在，`pak_offset` 反推是死路，只能靠游戏内按需下载补 | [01-实测 §6](docs/pc/01-实测.md) |
+| 语音 | `.nab` 是 bundle 后缀，内部即标准 `AudioClip`，UnityPy 直出 wav（48 kHz / 16 bit）。三桶各 2,190 + saus 1，约 12 GB | [01-实测 §5](docs/pc/01-实测.md) |
+| 静态表 | `StaticData.pack` 双层 AES 在部分版本上解不开，替代路径是从进程内存 dump | [03-fetch](docs/android/03-fetch.md) |
+| 工具 | 各环节有可用脚本，无统一入口，需按文档自己拼 | [04-tooling](docs/04-tooling.md) |
 
 ## 免责
 
