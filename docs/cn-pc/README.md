@@ -52,7 +52,16 @@
 ```bash
 python tools/nk.py cnindex --root "<安装目录>/nikke_Data/runtime_data/cache" --jobs 10
 python tools/nk.py cnget   --root "<安装目录>/nikke_Data/runtime_data/cache" "<32hex>" -o out.bundle
+
+# 批量：键表一行一个对象名，预检查索引里有没有这个名字
+python tools/nk.py locate "marian" --cn-root "<安装目录>/nikke_Data" --cn-keys cn.txt
+python tools/nk.py batch  cn.txt --scene cn-pc --root "<安装目录>/nikke_Data/runtime_data/cache" \
+                          -o out/ --jobs 4 --skip-missing
 ```
+
+批量实测 200 个对象名 11.0 秒（55 ms/件），逐件起进程约 7.7 分钟，差 42 倍。
+注意键表格式：对象名不带扩展名，注释写 `# 空格`（国服有 `##_board_touchtext`
+和以空格开头的 ` sound_hacking_active`，按常规 strip + `#` 注释会被吞）。
 
 索引默认落 `build/cn_index.sqlite`（已在 `.gitignore` 里，别提交）。是一次性成本：22,210 个包、8.46 GB，10 进程实测 10 分钟以上（大包拖尾）。建一次可反复查。
 

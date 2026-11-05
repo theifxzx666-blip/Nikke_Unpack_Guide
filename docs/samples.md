@@ -83,4 +83,7 @@ python tools/nk.py get    --scene intl-adb --root "/sdcard/Android/data/com.prox
 python tools/nk.py cnindex --root "<cache 根>" --jobs 10
 python tools/nk.py cnget   --root "<cache 根>" "<32hex 或对象名>" -o x.bundle
 python tools/nk.py export  x.bundle -o x/
+
+# 国服批量（对象名清单可用 locate --cn-keys 直接产出）
+python tools/nk.py batch   cn.txt --scene cn-pc --root "<cache 根>" -o out/ --jobs 4 --skip-missing
 ```

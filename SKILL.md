@@ -42,6 +42,9 @@ agent_created: true
 9. **先确认资源在哪个服，再动手**。两服版本不同步，同一个活动可能只在一边有
    （MARIA-n：国际服 198 个包，国服 9 条音频）。`locate` 一条命令 0.4 秒给出两服的命中数与类型构成，
    不看这个数字就开跑，等于赌运气。
+10. **键表别 strip，注释只认 `# `**。国服真实存在以空格开头的对象名（` sound_hacking_active`）
+    和以 `##` 开头的名字（`##_board_touchtext`）。按常规「`#` 即注释 + strip 每行」处理，
+    这两种会被静默吞掉，症状是「200 个键只跑了 198 个，且首行报查不到」。
 
 ## 快速开始
 
@@ -75,11 +78,17 @@ python tools/nk.py pull --scene intl-adb --root "/sdcard/Android/data/com.proxim
 # 国服（两端同法，先建索引再取）
 python tools/nk.py cnindex --root "<cache 根>" -o build/cn_index.sqlite --jobs 4
 python tools/nk.py cnget   --root "<cache 根>" "<32hex 或对象名>" -o x.bundle
+
+# 国服批量：键表一行一个对象名，locate --cn-keys 可直接产出这份清单
+python tools/nk.py locate "marian" --cn-root "E:/.../nikke_Data" --cn-keys cn_keys.txt
+python tools/nk.py batch cn_keys.txt --scene cn-pc --root "<cache 根>" -o out/ --jobs 4 --skip-missing
+#   国服预检查的是「索引里有没有这个名字」，没有 idx 可查（整文件复制，无分块）
 ```
 
 **批量是唯一有效的提速手段**。单件 2.6 s 里有 2.05 s 是解释器、`import UnityPy`（1.75 s）与
 CIDX 解析（152 ms）的固定成本，逐件起进程等于每件都重付一遍。实测：20 件从 52.4 s 压到
-3.2 s（16 倍），100 件从约 4.4 分钟压到 5.0 s（约 52 倍）。`--jobs` 默认 4，八进程只再快 8%。
+3.2 s（16 倍），100 件从约 4.4 分钟压到 5.0 s（约 52 倍）；国服 200 件单件约 7.7 分钟，
+批量 11.0 s（约 42 倍）。`--jobs` 默认 4，八进程只再快 8%。
 详见 [docs/05-效率实测.md](docs/05-效率实测.md)。
 
 依赖：UnityPy 1.25.x + zstandard + Pillow + pycryptodome；国服 NKAB 另需 NAU（.NET 8）。

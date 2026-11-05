@@ -315,7 +315,7 @@ def _verdict(servers):
         hi, lo = max(i, c), min(i, c)
         why = '两服都有：国际服 %d 条 / 国服 %d 条，按语种和画质选' % (i, c)
         if lo * 10 < hi:
-            why += '；%s 只有 %d 条，量级差一个数量级以上，先看 samples 确认是不是同一类资源' % (
+            why += '；%s只有 %d 条，量级差一个数量级以上，先看 samples 确认是不是同一类资源' % (
                 '国服' if c < i else '国际服', lo)
         return {'go': 'both', 'why': why}
     if ci:
@@ -671,11 +671,13 @@ def _container_keys(path):
     return _probe_bundle(path)[1] or []
 
 
-def cn_fetch(cache_root, needle, out_path, nau=None, db_path=None):
+def cn_fetch(cache_root, needle, out_path, nau=None, db_path=None, strict=False):
     """按对象名定位 bundle，必要时过 NAU 解 NKAB。
 
     `needle` 可以是完整对象名（清单键末 32 hex + .bundle），也可以是片段。
     精确命中优先；未命中再退回 LIKE 模糊，并把候选数回报出来，方便判断是不是版本变了。
+    `strict=True` 时不做模糊回退——批量场景必须如此：一句 LIKE 取第一条，
+    出错不报错，只是悄悄导出另一个包，比失败更难发现。
     """
     import sqlite3
     db_path = db_path or os.path.join('build', 'cn_index.sqlite')
@@ -691,6 +693,9 @@ def cn_fetch(cache_root, needle, out_path, nau=None, db_path=None):
             break
     n_cand = 1
     if not hit:
+        if strict:
+            con.close()
+            raise KeyError('索引里没有该对象名: %s' % needle)
         rows = con.execute('SELECT name, path FROM files WHERE name LIKE ? LIMIT 50',
                            ('%' + needle + '%',)).fetchall()
         if not rows:
@@ -773,7 +778,7 @@ def _safe(name):
     return ''.join(c if c.isalnum() or c in '-_.' else '_' for c in name)[:80]
 
 
-def pull(scene, root, key, out_dir, bucket='core', nau='', adb=None):
+def pull(scene, root, key, out_dir, bucket='core', nau='', adb=None, strict=False):
     """取件 + 导出，一条命令、一次进程。
 
     为什么合并：单件取件的固定成本几乎全是进程启动，实测
@@ -793,7 +798,7 @@ def pull(scene, root, key, out_dir, bucket='core', nau='', adb=None):
             open(bundle, 'wb').write(data)
             info = {'bytes': len(data), 'segments': nseg}
         else:
-            info = cn_fetch(root, key, bundle, nau)
+            info = cn_fetch(root, key, bundle, nau, strict=strict)
         info.update(export(bundle, out_dir))
         info['out'] = out_dir
         return info
@@ -803,9 +808,9 @@ def pull(scene, root, key, out_dir, bucket='core', nau='', adb=None):
 
 def _pull_job(args):
     """worker：多进程时每个进程自己 import 一次 UnityPy，然后连跑多件。"""
-    scene, root, key, out_dir, bucket, nau, adb = args
+    scene, root, key, out_dir, bucket, nau, adb, strict = args
     try:
-        r = pull(scene, root, key, out_dir, bucket=bucket, nau=nau, adb=adb)
+        r = pull(scene, root, key, out_dir, bucket=bucket, nau=nau, adb=adb, strict=strict)
         return {'key': key, 'bytes': r.get('bytes'), 'sizes': r.get('sizes'), 'err': None}
     except Exception as e:
         return {'key': key, 'bytes': None, 'sizes': None,
@@ -854,8 +859,59 @@ def preflight(scene, keys, root='', bucket='core', adb=None, catdir=''):
     return {'keys': len(keys), 'ok': ok, 'gone': gone, 'unknown': unknown}
 
 
+def _read_keys(path):
+    """读键表：一行一个键，空行跳过，`# `（井号+空格）开头为注释。
+
+    这里刻意不做 strip。国服真实存在以空格开头的对象名（` sound_hacking_active`），
+    strip 掉就永远查不到；注释也只认 `# `，因为国服有 `##_board_touchtext` 这类名字。
+    国际服的键不含空格，调用方自行 strip 一次兜手抄误差。
+    """
+    out = []
+    with open(path, encoding='utf-8-sig') as f:
+        for line in f:
+            s = line.rstrip('\r\n')
+            t = s.strip()
+            if not t or t == '#' or t.startswith('# ') or t.startswith('#\t'):
+                continue
+            out.append(s)
+    return out
+
+
+def cn_preflight(keys, db=None):
+    """国服预检：把「索引里没有这个名字」的挑出来。
+
+    国服取件是整文件复制，不存在「块没下载」这回事，能查的只有对象名在不在索引里。
+    判据与取件同一条：name 精确匹配。顺带统计同名多包——一个对象名可能出现在
+    多个包里（Unity 允许重名），取件只取第一条，数量多时值得知道。
+    """
+    import sqlite3
+    db = db or os.path.join('build', 'cn_index.sqlite')
+    if not os.path.exists(db):
+        raise FileNotFoundError('国服索引不存在: %s' % db)
+    con = sqlite3.connect('file:%s?mode=ro' % db.replace(os.sep, '/'), uri=True)
+    ok, unknown, multi = [], [], []
+    try:
+        for k in keys:
+            hit = None
+            for cand in (k, k.strip()):
+                if cand and con.execute('SELECT 1 FROM files WHERE name=? LIMIT 1',
+                                        (cand,)).fetchone():
+                    hit = cand
+                    break
+            if not hit:
+                unknown.append(k)
+                continue
+            rows = con.execute('SELECT path FROM files WHERE name=? LIMIT 2', (hit,)).fetchall()
+            if len(rows) > 1:
+                multi.append(hit)
+            ok.append(hit)
+    finally:
+        con.close()
+    return {'keys': len(keys), 'ok': ok, 'unknown': unknown, 'multi': multi}
+
+
 def batch(scene, root, keys_file, out_root, bucket='core', nau='', adb=None,
-          limit=0, jobs=1, precheck=True, skip_missing=False):
+          limit=0, jobs=1, precheck=True, skip_missing=False, db=''):
     """批量取件导出：一次进程吃一整份键表。
 
     省的是每件约 2 秒的解释器 + UnityPy 导入。键表一行一个完整键，`#` 开头为注释。
@@ -865,9 +921,12 @@ def batch(scene, root, keys_file, out_root, bucket='core', nau='', adb=None,
     wall time 只算一次，再乘上按件并行。件数少于 2×jobs 时退回串行，否则 spawn 开销吃掉收益。
 
     precheck 先按 idx 分「能拉 / 物理没有」；skip_missing 时只拉能拉的。
+    国服没有 idx，预检改为查索引里有没有这个对象名，其余流程一致；
+    键是对象名（不带扩展名），取件走整文件复制，NKAB 才需要 --nau。
     """
-    with open(keys_file, encoding='utf-8') as f:
-        keys = [x.strip() for x in f if x.strip() and not x.lstrip().startswith('#')]
+    keys = _read_keys(keys_file)
+    if scene.startswith('intl'):
+        keys = [k.strip() for k in keys]
     if limit:
         keys = keys[:limit]
 
@@ -886,10 +945,30 @@ def batch(scene, root, keys_file, out_root, bucket='core', nau='', adb=None,
             if not keys:
                 return {'total': 0, 'ok': 0, 'fail': 0, 'seconds': 0.0, 'jobs': 1,
                         'per_item_ms': 0, 'failures': [], 'note': '预检后无可拉键'}
+    elif precheck and scene.startswith('cn'):
+        try:
+            pre = cn_preflight(keys, db=db)
+        except FileNotFoundError as e:
+            print('预检跳过：%s' % e, file=sys.stderr, flush=True)
+        else:
+            print('预检: 键 %d  索引有 %d  索引没有 %d  同名多包 %d'
+                  % (pre['keys'], len(pre['ok']), len(pre['unknown']), len(pre['multi'])),
+                  file=sys.stderr, flush=True)
+            for k in pre['unknown'][:5]:
+                print('  索引无此名  %s' % k, file=sys.stderr)
+            if len(pre['unknown']) > 5:
+                print('  …另外 %d 个同样查不到' % (len(pre['unknown']) - 5), file=sys.stderr)
+            if skip_missing:
+                keys = pre['ok']
+                if not keys:
+                    return {'total': 0, 'ok': 0, 'fail': 0, 'seconds': 0.0, 'jobs': 1,
+                            'per_item_ms': 0, 'failures': [], 'note': '预检后无可取键'}
 
     total = len(keys)
     t0 = time.time()
     ok, fail = [], []
+    # 国服必须严格精确：一句 LIKE 取第一条不会报错，只会悄悄导出别的包。
+    strict = scene.startswith('cn')
 
     def record(i, r):
         if r['err']:
@@ -902,7 +981,7 @@ def batch(scene, root, keys_file, out_root, bucket='core', nau='', adb=None,
 
     if jobs > 1 and total >= 2 * jobs:
         import multiprocessing as mp
-        tasks = [(scene, root, k, os.path.join(out_root, _safe(k)), bucket, nau, adb)
+        tasks = [(scene, root, k, os.path.join(out_root, _safe(k)), bucket, nau, adb, strict)
                  for k in keys]
         with mp.Pool(jobs) as pool:
             for i, r in enumerate(pool.imap_unordered(_pull_job, tasks, chunksize=2), 1):
@@ -910,7 +989,7 @@ def batch(scene, root, keys_file, out_root, bucket='core', nau='', adb=None,
     else:
         for i, k in enumerate(keys, 1):
             record(i, _pull_job((scene, root, k, os.path.join(out_root, _safe(k)),
-                                 bucket, nau, adb)))
+                                 bucket, nau, adb, strict)))
 
     el = time.time() - t0
     rep = {'total': total, 'ok': len(ok), 'fail': len(fail),
@@ -918,9 +997,15 @@ def batch(scene, root, keys_file, out_root, bucket='core', nau='', adb=None,
            'per_item_ms': round(el / total * 1000) if total else 0,
            'failures': fail[:20]}
     if pre:
-        rep['preflight'] = {'keys': pre['keys'], 'pullable': len(pre['ok']),
-                            'missing': len(pre['gone']), 'unknown': len(pre['unknown']),
-                            'skipped_missing': bool(skip_missing)}
+        if scene.startswith('intl'):
+            rep['preflight'] = {'keys': pre['keys'], 'pullable': len(pre['ok']),
+                                'missing': len(pre['gone']), 'unknown': len(pre['unknown']),
+                                'skipped_missing': bool(skip_missing)}
+        else:
+            rep['preflight'] = {'keys': pre['keys'], 'pullable': len(pre['ok']),
+                                'not_in_index': len(pre['unknown']),
+                                'multi_path': len(pre['multi']),
+                                'skipped_missing': bool(skip_missing)}
     return rep
 
 
@@ -1128,8 +1213,8 @@ def main():
     if a.cmd == 'batch':
         print(json.dumps(batch(a.scene, a.root, a.args[0], out or 'out', a.bucket,
                                a.nau, limit=a.limit, jobs=a.jobs,
-                               precheck=not a.no_precheck, skip_missing=a.skip_missing),
-                         ensure_ascii=False))
+                               precheck=not a.no_precheck, skip_missing=a.skip_missing,
+                               db=a.db), ensure_ascii=False))
         return 0
 
     if a.cmd == 'export':
