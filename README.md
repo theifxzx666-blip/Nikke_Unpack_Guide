@@ -67,7 +67,7 @@ New-Item -ItemType Junction -Path "$env:USERPROFILE\.workbuddy\skills\nikke-unpa
 
 ## 四处真差异
 
-| # | 项 | 国际服 | 国服 |
+| # | 项 | 七桶形态 | 缓存形态 |
 | :-: | :--- | :--- | :--- |
 | 1 | 清单 | 自研 `NKDB`（AES-128-OFB，密钥在偏移 8） | Unity Addressables 明文 JSON |
 | 2 | 数据体 | `store.cdb` + `CIDX` 索引，块级 zstd | Unity Cache 目录树，整包 |
