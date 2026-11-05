@@ -4,7 +4,7 @@
 
 底层能力基本都有，缺的是统一入口和上层编排。先定契约，避免每期脚本继续各写一套。
 
-> **2026-11-05 状态**：`tools/nk.py` 已实现 `doctor` / `scan` / `find` / `get` / `pull` / `batch` / `cnindex` / `cnget` / `export` 九个子命令，覆盖四场景的读链路。契约中的 pull 阶段由两条命令承担：`pull`（单件，取件+导出合一）与 `batch`（键表批量，一次进程）。实测数据见 [05-效率实测.md](../05-效率实测.md)。下文其余子命令（`snapshot` / `diff` / `archive` / `report`）仍是契约状态。
+> **2026-11-05 状态**：`tools/nk.py` 已实现 `doctor` / `scan` / `find` / `get` / `pull` / `batch` / `cnindex` / `cnget` / `export` 九个子命令，覆盖四场景的读链路。契约中的 pull 阶段由两条命令承担：`pull`（单件，取件+导出合一）与 `batch`（键表批量，一次进程）；`find --all --keys` 负责把「按名字搜」接到「按键表拉」上，检索走 catalog，七个桶 198 个键 82 ms。实测数据见 [05-效率实测.md](../05-效率实测.md)。下文其余子命令（`snapshot` / `diff` / `archive` / `report`）仍是契约状态。
 
 ## 总体形态
 

@@ -89,6 +89,86 @@ def load_cidx(path):
     return idx
 
 
+INTL_BUCKETS = ('core', 'dp', 'fd', 'en', 'ja', 'ko', 'saus')
+
+
+def _ensure_cat(root, bucket, adb=False, catdir=''):
+    """取某桶 catalog.sqlite 的本地路径，没有就就地解密一次。
+
+    `catdir` 指向已经解密好的目录时直接复用，省掉重复解密
+    （七个桶全解一遍是分钟级，检索本身只要百毫秒级）。
+    """
+    if catdir:
+        for name in ('%s_catalog.sqlite' % bucket, '%s.sqlite' % bucket):
+            p = os.path.join(catdir, name)
+            if os.path.exists(p):
+                return p
+        raise FileNotFoundError('%s 里没有 %s 的 catalog' % (catdir, bucket))
+    if adb:
+        cache = os.path.join('build', '_cat_adb')
+        cat = os.path.join(cache, '%s.sqlite' % bucket)
+        if not os.path.exists(cat):
+            os.makedirs(cache, exist_ok=True)
+            tmp = os.path.join(cache, '%s_catalog.ndb' % bucket)
+            _adb_pull('%s/%s/catalog.ndb' % (root.rstrip('/'), bucket), tmp)
+            nkdb_decrypt(tmp, cat)
+        return cat
+    patch = intl_root(root)
+    cat = os.path.join('build', '_cat', '%s.sqlite' % bucket)
+    if not os.path.exists(cat):
+        nkdb_decrypt(os.path.join(patch, bucket, 'catalog.ndb'), cat)
+    return cat
+
+
+def find_keys(root, needle, buckets, adb=False, catdir=''):
+    """按子串检索完整键，返回 ({桶: [键…]}, [(桶, 跳过原因)…])。
+
+    为什么要跨桶：同一个活动名会散落在 core（UI/音频/Spine）、dp（剧情背景）、
+    fd/en/ja/ko/saus（文本）里，只查默认的 core 会漏掉一大半，而且漏得没有提示。
+    """
+    import sqlite3
+    hit, miss = {}, []
+    pat = '%' + needle.lower() + '%'
+    for b in buckets:
+        try:
+            cat = _ensure_cat(root, b, adb=adb, catdir=catdir)
+        except Exception as e:
+            miss.append((b, '%s: %s' % (type(e).__name__, e)))
+            continue
+        if not os.path.exists(cat):
+            miss.append((b, 'catalog 不存在'))
+            continue
+        con = sqlite3.connect('file:%s?mode=ro' % cat.replace(os.sep, '/'), uri=True)
+        try:
+            rows = [r[0] for r in con.execute(
+                'SELECT key FROM files_chunktype WHERE lower(key) LIKE ? ORDER BY key', (pat,))]
+        finally:
+            con.close()
+        if rows:
+            hit[b] = rows
+    return hit, miss
+
+
+def write_keys(hit, path):
+    """把检索结果落成 batch 能直接吃的键表，返回 {桶: 文件路径}。
+
+    batch 一次只认一个桶，所以多桶必须分文件，不能拼成一份——
+    混桶的键表会让另一桶的键全部报 KeyError。
+    """
+    base, ext = os.path.splitext(path)
+    ext = ext or '.txt'
+    written = {}
+    for b, keys in hit.items():
+        p = path if len(hit) == 1 else '%s_%s%s' % (base, b, ext)
+        d = os.path.dirname(os.path.abspath(p))
+        if d:
+            os.makedirs(d, exist_ok=True)
+        with open(p, 'w', encoding='utf-8', newline='\n') as f:
+            f.write('\n'.join(keys) + '\n')
+        written[b] = p
+    return written
+
+
 def intl_root(root):
     """客户端根 -> com.shiftup.patch 目录（PC 的根在启动器指定位置，不在安装目录）。"""
     for cand in (os.path.join(root, 'com.shiftup.patch'),
@@ -448,7 +528,12 @@ def export(bundle, out_dir):
         elif t == 'TextAsset':
             raw = d.m_Script
             raw = raw if isinstance(raw, bytes) else raw.encode('utf-8', 'surrogateescape')
-            open(os.path.join(out_dir, safe + '.txt'), 'wb').write(raw)
+            # Spine 的 .skel/.atlas 也是 TextAsset，名字里自带扩展名。
+            # 一律补 .txt 会导出 xxx.skel.txt，入库前还得手动改名，容易漏。
+            ext = os.path.splitext(safe)[1].lower()
+            fn = safe if ext in ('.skel', '.atlas', '.json', '.txt', '.bytes', '.csv', '.xml') \
+                else safe + '.txt'
+            open(os.path.join(out_dir, fn), 'wb').write(raw)
         elif t == 'AudioClip':
             try:
                 for n, wav in d.samples.items():
@@ -618,6 +703,9 @@ def main():
     ap.add_argument('--db', default='', help='国服索引库路径，默认 build/cn_index.sqlite')
     ap.add_argument('--jobs', type=int, default=4)
     ap.add_argument('--limit', type=int, default=0)
+    ap.add_argument('--all', action='store_true', help='find: 遍历全部七桶，不截断')
+    ap.add_argument('--keys', default='', help='find: 把结果写成键表，供 batch 直接消费')
+    ap.add_argument('--cat', default='', help='find: 复用已解密的 catalog 目录，跳过重新解包')
     a = ap.parse_args()
     need = {'find': 1, 'get': 1, 'pull': 1, 'batch': 1, 'cnget': 1, 'export': 1,
             '_cnpart': 2}
@@ -649,25 +737,36 @@ def main():
         return 0
 
     if a.cmd == 'find':
+        if a.scene.startswith('cn'):
+            # 国服缓存里只有「包内对象名 <32hex>.bundle」，没有语义键；
+            # 按名检索要读 Addressables catalog（明文 JSON），不在本命令范围。
+            print(json.dumps({'error': 'find 不支持国服',
+                              'reason': '国服缓存索引只有对象名，没有可读的语义键',
+                              'use': 'cnget --scene cn-pc <对象名片段>'}, ensure_ascii=False))
+            return 3
         adb = a.scene.endswith('adb')
-        if adb:
-            os.makedirs(os.path.join('build', '_cat_adb'), exist_ok=True)
-            cat = os.path.join('build', '_cat_adb', '%s.sqlite' % a.bucket)
-            if not os.path.exists(cat):
-                tmp = os.path.join('build', '_cat_adb', '%s_catalog.ndb' % a.bucket)
-                _adb_pull('%s/%s/catalog.ndb' % (a.root.rstrip('/'), a.bucket), tmp)
-                nkdb_decrypt(tmp, cat)
-        else:
-            patch = intl_root(a.root)
-            cat = os.path.join('build', '_cat', '%s.sqlite' % a.bucket)
-            if not os.path.exists(cat):
-                nkdb_decrypt(os.path.join(patch, a.bucket, 'catalog.ndb'), cat)
-        import sqlite3
-        con = sqlite3.connect(cat)
-        for fid, key in con.execute('SELECT file_id,key FROM files_chunktype WHERE key LIKE ? LIMIT 40',
-                                    ('%' + a.args[0] + '%',)):
-            print(fid, key)
-        return 0
+        buckets = INTL_BUCKETS if a.all else (a.bucket,)
+        t0 = time.time()
+        hit, miss = find_keys(a.root, a.args[0], buckets, adb=adb, catdir=a.cat)
+        total = sum(len(v) for v in hit.values())
+        rep = {'needle': a.args[0], 'total': total,
+               'buckets': {b: len(v) for b, v in hit.items()},
+               'ms': round((time.time() - t0) * 1000)}
+        if miss:
+            rep['skipped'] = [{'bucket': b, 'why': w} for b, w in miss]
+        if a.keys and total:
+            rep['keys_files'] = write_keys(hit, a.keys)
+            if len(hit) > 1:
+                rep['note'] = 'batch 一次只吃一个桶，按文件分别跑'
+        if not a.keys and hit:
+            lim = 0 if a.all else 40
+            for b, ks in hit.items():
+                print('== %s  %d' % (b, len(ks)))
+                for k in (ks[:lim] if lim else ks):
+                    print('  ', k)
+            rep['listed'] = 'all' if a.all else min(40, total)
+        print(json.dumps(rep, ensure_ascii=False))
+        return 0 if total else 1
 
     if a.cmd == 'get':
         key = a.args[0]

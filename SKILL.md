@@ -52,6 +52,11 @@ python tools/nk.py scan --scene intl-pc --root "D:/.../NIKKEG"
 python tools/nk.py find --scene intl-pc --root "D:/.../NIKKEG" --bucket dp "c010_00"
 python tools/nk.py pull --scene intl-pc --root "D:/.../NIKKEG" --bucket dp "<完整键>" -o x/
 
+# 国际服 PC —— 按活动名一次搜全七桶，直接出键表（检索百毫秒级）
+python tools/nk.py find "marian" --all --cat "<已解密 catalog 目录>" --keys keys.txt
+#   多桶会拆成 keys_core.txt / keys_dp.txt / …，因为 batch 一次只吃一个桶
+python tools/nk.py batch --scene intl-pc --root "D:/.../NIKKEG" --bucket core keys_core.txt -o out/core --jobs 4
+
 # 国际服 PC —— 批量：一个进程吃整份键表，别写 shell 循环
 python tools/nk.py batch --scene intl-pc --root "D:/.../NIKKEG" --bucket dp keys.txt -o out/
 
