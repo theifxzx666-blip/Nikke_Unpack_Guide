@@ -25,6 +25,55 @@ import zlib
 
 import zstandard as zstd
 
+
+# ---------------------------------------------------------------- 依赖自检
+
+def _alt_python():
+    """找一个装齐依赖的解释器，只为了把「换个解释器」变成可复制的命令。"""
+    cand = os.environ.get('NK_PYTHON')
+    if cand and os.path.exists(cand):
+        return cand
+    for p in ('F:/Codex/Supports/venv_assetparse/Scripts/python.exe',
+              'F:/Codex/依赖/venv-build/Scripts/python.exe'):
+        if not os.path.exists(p):
+            continue
+        try:
+            r = subprocess.run([p, '-c', 'import UnityPy, zstandard, PIL'],
+                               capture_output=True, timeout=30)
+        except Exception:
+            continue
+        if r.returncode == 0:
+            return p
+    return ''
+
+
+def require(*mods):
+    """缺依赖时一次说清，别让 89 件各自 ModuleNotFoundError 一遍。
+
+    Windows 上这个坑很常见：`python` 指向的解释器没装 UnityPy，装齐的在别的 venv 里。
+    逐件报错只会刷满一屏且看不出解法，所以直接给一条能复制粘贴的完整命令。
+    """
+    missing = []
+    for m in mods:
+        try:
+            __import__(m)
+        except ImportError:
+            missing.append(m)
+    if not missing:
+        return
+    lines = ['缺少依赖: %s' % ', '.join(missing),
+             '当前解释器: %s' % sys.executable]
+    alt = _alt_python()
+    if alt:
+        argv = [os.path.abspath(sys.argv[0])] + sys.argv[1:]
+        lines += ['已装齐的解释器，直接换这条跑:',
+                  '  "%s" %s' % (alt, ' '.join(argv))]
+    else:
+        lines.append('装法: pip install -r tools/requirements.txt')
+    print('\n'.join(lines), file=sys.stderr)
+    sys.exit(4)
+
+
 # ---------------------------------------------------------------- 国际服：清单
 
 def nkdb_decrypt(src, dst):
@@ -711,6 +760,8 @@ def main():
             '_cnpart': 2}
     if a.cmd in need and len(a.args) < need[a.cmd]:
         ap.error('%s 需要 %d 个位置参数（键 / 键表路径 / bundle 路径）' % (a.cmd, need[a.cmd]))
+    if a.cmd in ('pull', 'batch', 'export'):
+        require('UnityPy', 'PIL')
     out = a.out
 
     if a.cmd == 'doctor':
