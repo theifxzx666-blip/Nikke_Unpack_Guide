@@ -730,23 +730,34 @@ def nau_decrypt(nau, src, dst):
 
 # ---------------------------------------------------------------- 导出
 
-def export(bundle, out_dir):
-    """UnityPy 导出 + 自检。看不到数字就当失败。"""
+def export(bundle, out_dir, only=''):
+    """UnityPy 导出 + 自检。看不到数字就当失败。
+
+    `only` 是逗号分隔的关键词白名单，只落名字命中的对象。
+    活动 UI 常与公共元素（`ele_*` / `fx_*` / `common_*`）打进同一张图集，
+    整包导出会把别的活动的东西一起带出来——实测 TRUE FLAVOR 用了 22 个包，
+    导出 381 张图，其中大半与活动无关，入库前还得手工挑。
+    """
     import UnityPy
-    from PIL import Image
     os.makedirs(out_dir, exist_ok=True)
     env = UnityPy.load(bundle)
-    stats = {'Texture2D': 0, 'Sprite': 0, 'TextAsset': 0, 'AudioClip': 0, 'Mesh': 0}
+    want = [w.strip().lower() for w in only.split(',') if w.strip()]
+    stats = {'Texture2D': 0, 'Sprite': 0, 'TextAsset': 0, 'AudioClip': 0, 'Mesh': 0,
+             'kept': 0, 'skipped': 0}
     sizes = []
     for o in env.objects:
         t = o.type.name
-        if t in stats:
-            stats[t] += 1
         try:
             d = o.read()
         except Exception:
             continue
         name = getattr(d, 'm_Name', None) or str(o.path_id)
+        if want and not any(w in name.lower() for w in want):
+            stats['skipped'] += 1
+            continue
+        if t in stats:
+            stats[t] += 1
+        stats['kept'] += 1
         safe = ''.join(c if c.isalnum() or c in '-_.' else '_' for c in name)[:80]
         if t == 'Texture2D':
             try:
@@ -778,7 +789,7 @@ def _safe(name):
     return ''.join(c if c.isalnum() or c in '-_.' else '_' for c in name)[:80]
 
 
-def pull(scene, root, key, out_dir, bucket='core', nau='', adb=None, strict=False):
+def pull(scene, root, key, out_dir, bucket='core', nau='', adb=None, strict=False, only=''):
     """取件 + 导出，一条命令、一次进程。
 
     为什么合并：单件取件的固定成本几乎全是进程启动，实测
@@ -799,7 +810,7 @@ def pull(scene, root, key, out_dir, bucket='core', nau='', adb=None, strict=Fals
             info = {'bytes': len(data), 'segments': nseg}
         else:
             info = cn_fetch(root, key, bundle, nau, strict=strict)
-        info.update(export(bundle, out_dir))
+        info.update(export(bundle, out_dir, only=only))
         info['out'] = out_dir
         return info
     finally:
@@ -808,12 +819,14 @@ def pull(scene, root, key, out_dir, bucket='core', nau='', adb=None, strict=Fals
 
 def _pull_job(args):
     """worker：多进程时每个进程自己 import 一次 UnityPy，然后连跑多件。"""
-    scene, root, key, out_dir, bucket, nau, adb, strict = args
+    scene, root, key, out_dir, bucket, nau, adb, strict, only = args
     try:
-        r = pull(scene, root, key, out_dir, bucket=bucket, nau=nau, adb=adb, strict=strict)
-        return {'key': key, 'bytes': r.get('bytes'), 'sizes': r.get('sizes'), 'err': None}
+        r = pull(scene, root, key, out_dir, bucket=bucket, nau=nau, adb=adb,
+                 strict=strict, only=only)
+        return {'key': key, 'bytes': r.get('bytes'), 'sizes': r.get('sizes'),
+                'kept': r.get('kept'), 'skipped': r.get('skipped'), 'err': None}
     except Exception as e:
-        return {'key': key, 'bytes': None, 'sizes': None,
+        return {'key': key, 'bytes': None, 'sizes': None, 'kept': None, 'skipped': None,
                 'err': '%s: %s' % (type(e).__name__, e)}
 
 
@@ -911,7 +924,7 @@ def cn_preflight(keys, db=None):
 
 
 def batch(scene, root, keys_file, out_root, bucket='core', nau='', adb=None,
-          limit=0, jobs=1, precheck=True, skip_missing=False, db=''):
+          limit=0, jobs=1, precheck=True, skip_missing=False, db='', only=''):
     """批量取件导出：一次进程吃一整份键表。
 
     省的是每件约 2 秒的解释器 + UnityPy 导入。键表一行一个完整键，`#` 开头为注释。
@@ -974,14 +987,15 @@ def batch(scene, root, keys_file, out_root, bucket='core', nau='', adb=None,
         if r['err']:
             fail.append({'key': r['key'], 'err': r['err']})
         else:
-            ok.append({'key': r['key'], 'bytes': r['bytes'], 'sizes': r['sizes']})
+            ok.append({'key': r['key'], 'bytes': r['bytes'], 'sizes': r['sizes'],
+                       'kept': r.get('kept'), 'skipped': r.get('skipped')})
         if i % 10 == 0 or i == total:
             print('  %d/%d  %.1fs  失败 %d' % (i, total, time.time() - t0, len(fail)),
                   file=sys.stderr, flush=True)
 
     if jobs > 1 and total >= 2 * jobs:
         import multiprocessing as mp
-        tasks = [(scene, root, k, os.path.join(out_root, _safe(k)), bucket, nau, adb, strict)
+        tasks = [(scene, root, k, os.path.join(out_root, _safe(k)), bucket, nau, adb, strict, only)
                  for k in keys]
         with mp.Pool(jobs) as pool:
             for i, r in enumerate(pool.imap_unordered(_pull_job, tasks, chunksize=2), 1):
@@ -989,13 +1003,17 @@ def batch(scene, root, keys_file, out_root, bucket='core', nau='', adb=None,
     else:
         for i, k in enumerate(keys, 1):
             record(i, _pull_job((scene, root, k, os.path.join(out_root, _safe(k)),
-                                 bucket, nau, adb, strict)))
+                                 bucket, nau, adb, strict, only)))
 
     el = time.time() - t0
     rep = {'total': total, 'ok': len(ok), 'fail': len(fail),
            'seconds': round(el, 1), 'jobs': jobs if (jobs > 1 and total >= 2 * jobs) else 1,
            'per_item_ms': round(el / total * 1000) if total else 0,
            'failures': fail[:20]}
+    if only:
+        rep['only'] = only
+        rep['kept'] = sum(o['kept'] or 0 for o in ok)
+        rep['skipped'] = sum(o['skipped'] or 0 for o in ok)
     if pre:
         if scene.startswith('intl'):
             rep['preflight'] = {'keys': pre['keys'], 'pullable': len(pre['ok']),
@@ -1087,6 +1105,7 @@ def main():
     ap.add_argument('--intl-root', default='', help='locate: 国际服客户端根（PC）')
     ap.add_argument('--cn-root', default='', help='locate: 国服根，cache/nikke_Data/安装目录皆可')
     ap.add_argument('--cn-keys', default='', help='locate: 把国服命中对象名写成清单')
+    ap.add_argument('--only', default='', help='pull/batch: 只导出名字含这些关键词的对象，逗号分隔')
     a = ap.parse_args()
     need = {'find': 1, 'get': 1, 'pull': 1, 'batch': 1, 'cnget': 1, 'export': 1,
             'locate': 1, '_cnpart': 2}
@@ -1206,15 +1225,15 @@ def main():
         return 0
 
     if a.cmd == 'pull':
-        print(json.dumps(pull(a.scene, a.root, a.args[0], out or 'out', a.bucket, a.nau),
-                         ensure_ascii=False))
+        print(json.dumps(pull(a.scene, a.root, a.args[0], out or 'out', a.bucket, a.nau,
+                              only=a.only), ensure_ascii=False))
         return 0
 
     if a.cmd == 'batch':
         print(json.dumps(batch(a.scene, a.root, a.args[0], out or 'out', a.bucket,
                                a.nau, limit=a.limit, jobs=a.jobs,
                                precheck=not a.no_precheck, skip_missing=a.skip_missing,
-                               db=a.db), ensure_ascii=False))
+                               db=a.db, only=a.only), ensure_ascii=False))
         return 0
 
     if a.cmd == 'export':

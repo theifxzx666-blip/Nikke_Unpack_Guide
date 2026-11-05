@@ -71,6 +71,9 @@ python tools/nk.py batch --scene intl-pc --root "D:/.../NIKKEG" --bucket core ke
 python tools/nk.py batch --scene intl-pc --root "D:/.../NIKKEG" --bucket dp keys.txt -o out/
 #   默认先预检 idx：清单有、本地没下载的键会在开跑前报出来
 python tools/nk.py batch keys.txt --bucket dp -o out/ --skip-missing   # 只拉能拉的
+python tools/nk.py batch keys.txt --bucket dp -o out/ --only "trueflavor,crust"
+#   --only 是导出白名单：活动 UI 常与公共元素打在同一张图集，整包导出会带出
+#   别的活动的东西。实测 22 个包 23,578 个对象里只有 508 个属于该活动。
 
 # 国际服安卓（清单与索引拉到本地，数据体按块 dd）
 python tools/nk.py pull --scene intl-adb --root "/sdcard/Android/data/com.proximabeta.nikke/files/com.shiftup.patch" --bucket dp "<键>" -o x/
