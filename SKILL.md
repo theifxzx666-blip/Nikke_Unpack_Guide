@@ -59,6 +59,8 @@ python tools/nk.py batch --scene intl-pc --root "D:/.../NIKKEG" --bucket core ke
 
 # 国际服 PC —— 批量：一个进程吃整份键表，别写 shell 循环
 python tools/nk.py batch --scene intl-pc --root "D:/.../NIKKEG" --bucket dp keys.txt -o out/
+#   默认先预检 idx：清单有、本地没下载的键会在开跑前报出来
+python tools/nk.py batch keys.txt --bucket dp -o out/ --skip-missing   # 只拉能拉的
 
 # 国际服安卓（清单与索引拉到本地，数据体按块 dd）
 python tools/nk.py pull --scene intl-adb --root "/sdcard/Android/data/com.proximabeta.nikke/files/com.shiftup.patch" --bucket dp "<键>" -o x/

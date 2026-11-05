@@ -80,7 +80,7 @@ export MSYS_NO_PATHCONV=1
 python tools/nk.py get    --scene intl-adb --root "/sdcard/Android/data/com.proximabeta.nikke/files/com.shiftup.patch" --bucket dp "<键>" -o x.bundle
 
 # 国服（两端同法）
-python tools/nk.py cnindex --root "<cache 根>" -o build/cn_index.json --jobs 10
+python tools/nk.py cnindex --root "<cache 根>" --jobs 10
 python tools/nk.py cnget   --root "<cache 根>" "<32hex 或对象名>" -o x.bundle
 python tools/nk.py export  x.bundle -o x/
 ```

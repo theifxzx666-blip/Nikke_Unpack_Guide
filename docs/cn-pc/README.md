@@ -50,11 +50,11 @@
 ⇒ **不要试图算路径**。只能按内容反查：读每个 `__data` 的对象名，建 `对象名 → 路径` 索引，再拿清单里的 32 hex 去对。
 
 ```bash
-python tools/nk.py cnindex --root "<安装目录>/nikke_Data/runtime_data/cache" -o build/cn_index.json --jobs 10
+python tools/nk.py cnindex --root "<安装目录>/nikke_Data/runtime_data/cache" --jobs 10
 python tools/nk.py cnget   --root "<安装目录>/nikke_Data/runtime_data/cache" "<32hex>" -o out.bundle
 ```
 
-索引是一次性成本：22,210 个包、8.46 GB，10 进程实测 10 分钟以上（大包拖尾）。建一次可反复查。
+索引默认落 `build/cn_index.sqlite`（已在 `.gitignore` 里，别提交）。是一次性成本：22,210 个包、8.46 GB，10 进程实测 10 分钟以上（大包拖尾）。建一次可反复查。
 
 ## NKAB 不一定在缓存里
 

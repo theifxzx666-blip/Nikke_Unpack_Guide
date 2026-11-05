@@ -236,22 +236,14 @@ def intl_fetch(root, bucket, key, adb=False):
     """
     if adb:
         dev_patch = root.rstrip('/')
-        os.makedirs(os.path.join('build', '_cat_adb'), exist_ok=True)
-        cat = os.path.join('build', '_cat_adb', '%s.sqlite' % bucket)
-        if not os.path.exists(cat):
-            tmp = os.path.join('build', '_cat_adb', '%s_catalog.ndb' % bucket)
-            _adb_pull('%s/%s/catalog.ndb' % (dev_patch, bucket), tmp)
-            nkdb_decrypt(tmp, cat)
+        cat = _ensure_cat(root, bucket, adb=True)
         idx_path = os.path.join('build', '_cat_adb', '%s.cdb.idx' % bucket)
         if not os.path.exists(idx_path):
             _adb_pull('%s/%s/chunk/store.cdb.idx' % (dev_patch, bucket), idx_path)
         store = '%s/%s/chunk/store.cdb' % (dev_patch, bucket)
     else:
+        cat = _ensure_cat(root, bucket)
         patch = intl_root(root)
-        cat = os.path.join('build', '_cat', '%s.sqlite' % bucket)
-        if not os.path.exists(cat):
-            os.makedirs(os.path.dirname(cat), exist_ok=True)
-            nkdb_decrypt(os.path.join(patch, bucket, 'catalog.ndb'), cat)
         store = os.path.join(patch, bucket, 'chunk', 'store.cdb')
         idx_path = os.path.join(patch, bucket, 'chunk', 'store.cdb.idx')
     import sqlite3
@@ -636,8 +628,50 @@ def _pull_job(args):
                 'err': '%s: %s' % (type(e).__name__, e)}
 
 
+def preflight(scene, keys, root='', bucket='core', adb=None, catdir=''):
+    """跑之前先分清「能拉」和「物理没有」。
+
+    清单记录的是「这个版本下发过什么」，而 chunk 只有在玩家真要这份资源时
+    才被下进 store.cdb。所以「清单里有」不等于「本地有」——实测一个活动
+    109 个 dp 键里 54 个属于后者，且全是 sd 变体。
+    不预检就要等整批跑完、看失败统计才知道，白付一遍导出开销。
+    """
+    import sqlite3
+    adb = scene.endswith('adb') if adb is None else adb
+    cat = _ensure_cat(root, bucket, adb=adb, catdir=catdir)
+    if adb:
+        idx_path = os.path.join('build', '_cat_adb', '%s.cdb.idx' % bucket)
+        if not os.path.exists(idx_path):
+            _adb_pull('%s/%s/chunk/store.cdb.idx' % (root.rstrip('/'), bucket), idx_path)
+    else:
+        patch = intl_root(root)
+        idx_path = os.path.join(patch, bucket, 'chunk', 'store.cdb.idx')
+    idx = load_cidx(idx_path)
+
+    con = sqlite3.connect('file:%s?mode=ro' % cat.replace(os.sep, '/'), uri=True)
+    ok, gone, unknown = [], [], []
+    try:
+        for k in keys:
+            row = con.execute('SELECT file_id FROM files_chunktype WHERE key=?', (k,)).fetchone()
+            if not row:
+                unknown.append(k)
+                continue
+            hashes = [r[0] for r in con.execute(
+                'SELECT c.hash FROM chunk_file_map m JOIN chunks c ON c.chunk_id=m.chunk_id '
+                'WHERE m.file_id=?', (row[0],))]
+            lack = [h for h in hashes if h not in idx]
+            if lack:
+                gone.append({'key': k, 'chunks': [h.hex()[:16] for h in lack[:3]],
+                             'n': len(lack)})
+            else:
+                ok.append(k)
+    finally:
+        con.close()
+    return {'keys': len(keys), 'ok': ok, 'gone': gone, 'unknown': unknown}
+
+
 def batch(scene, root, keys_file, out_root, bucket='core', nau='', adb=None,
-          limit=0, jobs=1):
+          limit=0, jobs=1, precheck=True, skip_missing=False):
     """批量取件导出：一次进程吃一整份键表。
 
     省的是每件约 2 秒的解释器 + UnityPy 导入。键表一行一个完整键，`#` 开头为注释。
@@ -645,11 +679,30 @@ def batch(scene, root, keys_file, out_root, bucket='core', nau='', adb=None,
 
     jobs>1 时按件多进程：每个 worker 各付一次导入，但导入是并行发生的，
     wall time 只算一次，再乘上按件并行。件数少于 2×jobs 时退回串行，否则 spawn 开销吃掉收益。
+
+    precheck 先按 idx 分「能拉 / 物理没有」；skip_missing 时只拉能拉的。
     """
     with open(keys_file, encoding='utf-8') as f:
         keys = [x.strip() for x in f if x.strip() and not x.lstrip().startswith('#')]
     if limit:
         keys = keys[:limit]
+
+    pre = None
+    if precheck and scene.startswith('intl'):
+        pre = preflight(scene, keys, root=root, bucket=bucket, adb=adb)
+        print('预检: 键 %d  可拉 %d  物理缺失 %d  清单无此键 %d'
+              % (pre['keys'], len(pre['ok']), len(pre['gone']), len(pre['unknown'])),
+              file=sys.stderr, flush=True)
+        for g in pre['gone'][:5]:
+            print('  缺 %d 块  %s' % (g['n'], g['key']), file=sys.stderr)
+        if len(pre['gone']) > 5:
+            print('  …另外 %d 个同样缺块' % (len(pre['gone']) - 5), file=sys.stderr)
+        if skip_missing:
+            keys = pre['ok']
+            if not keys:
+                return {'total': 0, 'ok': 0, 'fail': 0, 'seconds': 0.0, 'jobs': 1,
+                        'per_item_ms': 0, 'failures': [], 'note': '预检后无可拉键'}
+
     total = len(keys)
     t0 = time.time()
     ok, fail = [], []
@@ -676,10 +729,15 @@ def batch(scene, root, keys_file, out_root, bucket='core', nau='', adb=None,
                                  bucket, nau, adb)))
 
     el = time.time() - t0
-    return {'total': total, 'ok': len(ok), 'fail': len(fail),
-            'seconds': round(el, 1), 'jobs': jobs if (jobs > 1 and total >= 2 * jobs) else 1,
-            'per_item_ms': round(el / total * 1000) if total else 0,
-            'failures': fail[:20]}
+    rep = {'total': total, 'ok': len(ok), 'fail': len(fail),
+           'seconds': round(el, 1), 'jobs': jobs if (jobs > 1 and total >= 2 * jobs) else 1,
+           'per_item_ms': round(el / total * 1000) if total else 0,
+           'failures': fail[:20]}
+    if pre:
+        rep['preflight'] = {'keys': pre['keys'], 'pullable': len(pre['ok']),
+                            'missing': len(pre['gone']), 'unknown': len(pre['unknown']),
+                            'skipped_missing': bool(skip_missing)}
+    return rep
 
 
 
@@ -755,6 +813,8 @@ def main():
     ap.add_argument('--all', action='store_true', help='find: 遍历全部七桶，不截断')
     ap.add_argument('--keys', default='', help='find: 把结果写成键表，供 batch 直接消费')
     ap.add_argument('--cat', default='', help='find: 复用已解密的 catalog 目录，跳过重新解包')
+    ap.add_argument('--no-precheck', action='store_true', help='batch: 跳过 idx 预检')
+    ap.add_argument('--skip-missing', action='store_true', help='batch: 预检后只拉能拉的')
     a = ap.parse_args()
     need = {'find': 1, 'get': 1, 'pull': 1, 'batch': 1, 'cnget': 1, 'export': 1,
             '_cnpart': 2}
@@ -849,7 +909,9 @@ def main():
 
     if a.cmd == 'batch':
         print(json.dumps(batch(a.scene, a.root, a.args[0], out or 'out', a.bucket,
-                               a.nau, limit=a.limit, jobs=a.jobs), ensure_ascii=False))
+                               a.nau, limit=a.limit, jobs=a.jobs,
+                               precheck=not a.no_precheck, skip_missing=a.skip_missing),
+                         ensure_ascii=False))
         return 0
 
     if a.cmd == 'export':
