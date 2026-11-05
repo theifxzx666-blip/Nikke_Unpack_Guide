@@ -32,7 +32,7 @@
 
 ## 工具
 
-单一入口 `tools/nk.py`，子命令与 [docs/common/04-tooling.md](docs/common/04-tooling.md) 的契约对齐（当前实现了 `doctor` / `scan` / `find` / `get` / `cnindex` / `cnget` / `export`）。
+单一入口 `tools/nk.py`，子命令与 [docs/common/04-tooling.md](docs/common/04-tooling.md) 的契约对齐（当前实现了 `doctor` / `scan` / `find` / `get` / `pull` / `batch` / `cnindex` / `cnget` / `export`；`pull` 是单件取件+导出合一，`batch` 是键表批量，对应契约中的 pull 阶段）。批量必须用 `batch`，不要写 shell 循环——逐件起进程会让每件重付约 2 s 的解释器与 UnityPy 导入成本，实测 20 件差 7.1 倍。
 
 ```bash
 python -c "import UnityPy, zstandard, PIL, Crypto; print('ok')"   # 依赖自查

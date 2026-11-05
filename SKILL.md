@@ -34,6 +34,11 @@ agent_created: true
 4. **取键必须过滤 `(hd)`**。同名 HD/SD 并存，SD 后写覆盖 HD，症状是「所有键 0 命中」。
 5. **看不到自检数字就当失败**。贴图看对象数与尺寸，模型看 `ratio ≥ 1.5`，文本看行数。UnityPy 对一批包会导出不动的模型、错位的 bundle、缺件的动画，三种都不报错。
 6. **不猜路径、不猜键名、不猜译名**。查不到就写「未验证」，别写「应该」。
+7. **扫全量包必须进程隔离**。实测有单个 39 KB 的包会让 UnityPy **段错误**（0xC0000005），
+   `try/except` 抓不住，`Pool` 里一个 worker 崩了主进程就永远等下去——症状是「不报错、只是不动了」。
+   用 `cnindex` 的分片 subprocess 模式，崩了只丢一个包并记账跳过。
+8. **批量才谈效率，单件谈不了**。单件 2.6 s 里 2.05 s 是解释器 + `import UnityPy` + CIDX 解析，
+   改代码优化不掉；用 `batch` 一个进程吃整份键表，20 件快 16 倍、100 件快 52 倍。
 
 ## 快速开始
 
@@ -42,19 +47,26 @@ agent_created: true
 export MSYS_NO_PATHCONV=1
 PYTHONUTF8=1
 
-# 国际服 PC
+# 国际服 PC —— 单件：取件+导出一条命令
 python tools/nk.py scan --scene intl-pc --root "D:/.../NIKKEG"
 python tools/nk.py find --scene intl-pc --root "D:/.../NIKKEG" --bucket dp "c010_00"
-python tools/nk.py get  --scene intl-pc --root "D:/.../NIKKEG" --bucket dp "<完整键>" -o x.bundle
-python tools/nk.py export x.bundle -o x/
+python tools/nk.py pull --scene intl-pc --root "D:/.../NIKKEG" --bucket dp "<完整键>" -o x/
+
+# 国际服 PC —— 批量：一个进程吃整份键表，别写 shell 循环
+python tools/nk.py batch --scene intl-pc --root "D:/.../NIKKEG" --bucket dp keys.txt -o out/
 
 # 国际服安卓（清单与索引拉到本地，数据体按块 dd）
-python tools/nk.py get --scene intl-adb --root "/sdcard/Android/data/com.proximabeta.nikke/files/com.shiftup.patch" --bucket dp "<键>" -o x.bundle
+python tools/nk.py pull --scene intl-adb --root "/sdcard/Android/data/com.proximabeta.nikke/files/com.shiftup.patch" --bucket dp "<键>" -o x/
 
 # 国服（两端同法，先建索引再取）
-python tools/nk.py cnindex --root "<cache 根>" -o build/cn_index.json --jobs 10
+python tools/nk.py cnindex --root "<cache 根>" -o build/cn_index.sqlite --jobs 4
 python tools/nk.py cnget   --root "<cache 根>" "<32hex 或对象名>" -o x.bundle
 ```
+
+**批量是唯一有效的提速手段**。单件 2.6 s 里有 2.05 s 是解释器、`import UnityPy`（1.75 s）与
+CIDX 解析（152 ms）的固定成本，逐件起进程等于每件都重付一遍。实测：20 件从 52.4 s 压到
+3.2 s（16 倍），100 件从约 4.4 分钟压到 5.0 s（约 52 倍）。`--jobs` 默认 4，八进程只再快 8%。
+详见 [docs/05-效率实测.md](docs/05-效率实测.md)。
 
 依赖：UnityPy 1.25.x + zstandard + Pillow + pycryptodome；国服 NKAB 另需 NAU（.NET 8）。
 
@@ -78,7 +90,11 @@ python tools/nk.py cnget   --root "<cache 根>" "<32hex 或对象名>" -o x.bund
 
 - **清单 → 缓存没有直连**。缓存目录名是随机 hash，与 bundle 名无确定关系；md5 / sha1 的各种变体实测全部不命中。**不要试图算路径**。
 - 唯一可用的桥：清单 `m_InternalIds` 里 bundle 名的末尾 **32 hex**，等于包内 `<hash>.bundle` 对象名。建「对象名 → 路径」索引来反查。
-- 索引是一次性成本：22,210 包 / 8.46 GB，10 进程 10 分钟以上。
+- 索引是一次性成本，本机实测：22,210 包 / 8.46 GB → 132,516 个不同对象名，库 335 MB。
+  真正干活约 4 分钟；吞吐会从 84 包/秒衰减到 24 包/秒，**ETA 要按滚动窗口算，别用全程均值**。
+- **毒包必须隔离**：`49a8af4f…`（39 KB）单独跑就 SIGSEGV。见铁律 7，用 `cnindex` 的分片 subprocess 模式。
+- 续跑去重键必须规范化（`abspath → normpath → normcase`）。`E:/x` 与 `E:\x` 是同一文件不同字符串，
+  按原样比对会让续跑静默全废、每次全量重跑。
 - 文本表 `.lss` 是**明文 SQLite**，直接 `sqlite3` 打开，不需要任何解密。
 - 取件粒度是整文件，没有 dd、没有 4096 对齐、没有 `file_offset` 校验——难点全在「定位」。
 - NAU 会停在 `Press enter`，子进程必须给空 stdin，否则永久挂起。
