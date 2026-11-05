@@ -1,80 +1,72 @@
 # AGENTS.md
 
-给 AI 智能体的操作说明。人读 [README.md](README.md)。
+给 AI 智能体的操作说明。人读 [README.md](README.md)，技能入口是 [SKILL.md](SKILL.md)。
 
 ## 项目是什么
 
-一套从 NIKKE 安卓客户端提取资源的工程方案：设备侧文件在哪、字节是什么格式、怎么定向取件、产物怎么落盘。
+一套从 NIKKE 客户端读取资源的工程方案，覆盖四个场景：**国际服 / 国服 × PC / 安卓**。
 
-**是**：容器格式规格、取件算法、43 类资源的键规律、增量判定口径、落盘命名规范。
+**是**：容器格式规格、清单与索引结构、取件算法、43 类资源的键规律、四场景差异、增量判定口径、落盘命名。
 
-**不是**：游戏修改、私服搭建、内存注入、反汇编、美术二次创作。这些不在范围内，不要往这个方向扩展。
+**不是**：游戏修改、私服搭建、内存注入、反汇编、绕过登录、美术二次创作。不要往这些方向扩展。
 
 ## 接手前必须知道的三条
 
-**一、键集合差不等于新增。** 两版 catalog 的键直接 diff 会得到「新增 2,747 条」这种数字，绝大部分是同一资源 hash 变了的重打包条目。必须从键里正则提业务 ID 再做集合差，同一版本实际只新增 12 个 ID。用错方法会虚报两个数量级。
+**一、先判容器，再判端。** 容器形态决定清单与数据体（硬分叉），端只决定字节怎么搬。七桶形态是 `catalog.ndb`(NKDB) + `store.cdb`(CIDX)；缓存形态是 Addressables 明文 JSON + `cache/<hexA>/<hexB>/__data`。**容器与服名不一一对应**——国服既有七桶客户端也有 WeGame 缓存版，看目录结构，不看服名。判错的代价不对称：往错的方向找，会卡在第一步且毫无提示。
 
-**二、导出成功不等于产物正确。** UnityPy 对一批包会导出不动的模型、内容错位的 bundle、缺件的动画，三种情况都不报错。必须打自检数字：模型看 `objects / triangles / vertices / ratio`，要求 `ratio ≥ 1.5`；动画看通道数大于 0；拼装看 `file_offset == 已写入长度`。看不到数字就当失败。
+**二、键集合差不等于新增。** 两版 catalog 的键直接 diff 会得到「新增 2,747 条」这种数字，绝大部分是同一资源 hash 变了的重打包条目。必须从键里正则提业务 ID 再做集合差，同一版本实际只新增 12 个 ID。用错方法会虚报两个数量级。
 
-**三、索引不覆盖全量块。** `store.cdb.idx` 只索引 178,332 个块，而 `chunks` 表有 192,232 条，差的 13,900 个全是低清版 `(sd)`。取高清版不受影响，取低清版会遇到「chunk 不在 idx」。
+**三、导出成功不等于产物正确。** UnityPy 对一批包会导出不动的模型、内容错位的 bundle、缺件的动画，三种都不报错。必须打自检数字：模型看 `objects / triangles / vertices / ratio`，要求 `ratio ≥ 1.5`；动画看通道数 > 0；拼装看 `file_offset == 已写入长度`。**看不到数字就当失败。**
 
-PC 端已把这条查到定论（[docs/pc/01-实测.md §6](docs/pc/01-实测.md)）：
-`256 + Σ(idx.size)` 与 `store.cdb` 实际字节数五桶全部相等、索引区间零间隙
-⇒ **`.idx` 100% 覆盖物理字节，查不到的块物理上不存在**，用 `pak_offset` 反推是死路，只能靠游戏内按需下载补。
-遇到低清缺失时不必再尝试从 `pak_offset` 绕过，直接按缺失处理。
+## 路由表
 
-「零间隙」是国际服的实测结果，**不是跨客户端通用性质**。国服 WeGame 版 core/dp/fd/ja 四桶各有 44～4,861 处空隙、合计约 71.8 MiB，saus 才闭合（[docs/pc/03-国服WeGame版.md §4](docs/pc/03-国服WeGame版.md)）。
-所以别把 `256 + Σ(idx.size) == 文件大小` 写成断言去校验，它只是某一版的巧合级事实。
+先读 [docs/00-场景矩阵.md](docs/00-场景矩阵.md)，再按判据落到对应目录。
 
-## 文档地图
+| 判据 | 结论 | 读这篇 |
+| :--- | :--- | :--- |
+| 有 `com.shiftup.patch/` 七桶，`catalog.ndb` 头是 `NKDB` | 七桶形态 | [docs/intl-pc/](docs/intl-pc/README.md) 或 [docs/intl-android/](docs/intl-android/README.md) |
+| 有 `nikke_Data/runtime_data/cache` 或 `UnityCache/Shared` | 缓存形态 | [docs/cn-pc/](docs/cn-pc/README.md) 或 [docs/cn-android/](docs/cn-android/README.md) |
+| 都不像 | 停手核对安装目录 | 本文件「接手前必须知道的三条」第一条 |
 
-| 文件 | 读它的时机 |
-| :--- | :--- |
-| [docs/01-overview.md](docs/01-overview.md) | 要理解整体流程、三种工作模式、增量判定方法。**第一次接手先读这篇** |
-| [docs/02-catalog.md](docs/02-catalog.md) | 要回答「某个资源在哪、叫什么名、什么规格」 |
-| [docs/03-output.md](docs/03-output.md) | 要把产物按规范落盘 |
-| [docs/04-tooling.md](docs/04-tooling.md) | 要写或改工具 |
-| [docs/android/01-device.md](docs/android/01-device.md) | 第一次接设备，或拉取权限失败 |
-| [docs/android/02-containers.md](docs/android/02-containers.md) | 要写解密或解析代码 |
-| [docs/android/03-fetch.md](docs/android/03-fetch.md) | 要写取件脚本，或取件产物内容错乱 |
-| [tools/README.md](tools/README.md) | 搭环境 |
-| [docs/pc/README.md](docs/pc/README.md) | 有人问 PC 端。**已实测**，结论与差异清单在 [docs/pc/01-实测.md](docs/pc/01-实测.md) |
+端侧判断很简单：资源在本地磁盘 → PC；要 `adb` → 安卓。服名只影响内容（键数、语种、资源是否下发），不影响算法。
 
-只回答具体问题的话，读一篇就够，不必通读。
+## 工具
 
-## 工具与自检
+单一入口 `tools/nk.py`，子命令与 [docs/common/04-tooling.md](docs/common/04-tooling.md) 的契约对齐（当前实现了 `doctor` / `scan` / `find` / `get` / `cnindex` / `cnget` / `export`）。
 
 ```bash
-adb version
-python -c "import UnityPy, zstandard, PIL, sqlite3; print('ok')"
+python -c "import UnityPy, zstandard, PIL, Crypto; print('ok')"   # 依赖自查
 ```
-
-两行都通过才能动手。版本要求见 [tools/README.md](tools/README.md)。
 
 执行环境是 Windows 时必做两件事：Python 子进程设 `PYTHONUTF8=1`，Git Bash 里调 adb 前 `export MSYS_NO_PATHCONV=1`。
 
-## 产出约定
+路径含 `[` `]` `(` 时（如 `[3]Nikke`）通配符会误判，一律加引号；PowerShell 用 `-LiteralPath`。
 
-目录骨架和命名规则的权威定义在 [docs/03-output.md](docs/03-output.md)，不要另立一套。
+## 硬底线
 
-硬底线：
-
-- 目录名去前导零，文件名保留补零。这是母库既有写法，不要统一。
-- 每件产物必须能倒推回原始资源键。改名了就把映射写进说明。
-- 中文名只来自角色代号对照表。查不到标 `_未定名_`，不自行译名。
-- 交付目录不留 `.bak`。
-- 入库只新增不覆盖。
-
-中间产物一律进 `_源料\` 或 `构建\`，不进正式目录。
+- **只读客户端**，不写入、不改 ACL、不动存档。
+- **只切需要的段**。`store.cdb` 单桶 5~14 GB，绝不整桶拉。
+- **不猜路径、不猜键名、不猜译名**。查不到就写「未验证」。
+- **不把「待验」当「已知」**往下推。矩阵表里标待验的格子，实测前不要引用。
+- **不在仓库里放二进制**：`.bundle` / `.cdb` / `.ndb` / `.pack` / `.lsc` / `.lss` / `.mpk` 都不入库。
+- 不写客户端内嵌常量（`StaticData.pack` 的派生密钥材料）。
 
 ## 改动约定
 
 改这个仓库时：
 
-- **实测数字不许动。** 行数、体积、尺寸、偏移、集合差数量都是从真实文件读出来的，概算或「大致」会毁掉整个方案的可信度。
-- **新增结论要附证据。** 写「实测」就必须有对应的检查手段和结果。没有就写「未验证」。
-- **保留易错点。** 每条易错点都对应一次真实返工，删掉等于让下一个人重踩。
-- **不补充未验证的内容。** 目前仍未验证的：`catalog.ndb.nds`（96 B）的算法、`store.cdb.idx` 尾部 16 B 校验值、`raw/` 下 `.cat` 的容器格式、`.patch_state.json` 的 `revision` 与安卓 `versionName` 的映射。低清版缺口的成因已查清（块物理不存在），但补齐手段未验证。
-- **不加入客户端内嵌常量。** `StaticData.pack` 的派生密钥材料不写进仓库。
+- **实测数字不许动。** 行数、体积、尺寸、偏移、集合差数量都是从真实文件读出来的，概算会毁掉整个方案的可信度。
+- **新增结论要附证据。** 写「实测」就必须有检查手段和结果，没有就写「未验证」。
+- **保留易错点。** 每条都对应一次真实返工，删掉等于让下一个人重踩。
+- **标注版本与实例。** 同一个服可能有多个分发版本（例如国服 WeGame 版与官网版，缓存一个明文一个 NKAB），数字必须带版本与路径，不能混写。
+- 新增条目的格式跟着所在文件走，不要引入新的标记体系。
 
-新增条目的格式跟着所在文件走，不要引入新的标记体系。
+## 已知的「文档与现实不符」记录
+
+| 旧说法 | 实测 | 处置 |
+| :--- | :--- | :--- |
+| 安卓 `saus/raw` 明文命名 | 153.6.10 实为 16 B hash hex，与国际服 PC 一致 | 已在 [docs/intl-android/](docs/intl-android/README.md) 更正 |
+| 国服缓存是 NKAB 密文 | WeGame 版 22,210 个 `__data` 全为明文 `UnityFS` | 改为「先读 4 字节再判」，见 [SKILL.md](SKILL.md) 铁律 1 |
+| `store.cdb` 零间隙紧密排列 | 国际服五桶闭合，国服四桶有 71.8 MiB 空隙 | 已在 [docs/cn-pc/01-实测.md](docs/cn-pc/01-实测.md) §4 标注适用范围 |
+
+遇到新的不一致，追加到这张表，不要只改正文。

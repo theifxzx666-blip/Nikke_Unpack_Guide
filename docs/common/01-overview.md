@@ -138,7 +138,7 @@ _拆包_<日期>\
 ④ 按 file_offset 拼装，必须校验连续性
 ```
 
-细节和三条硬约束见 [android/03-fetch.md](android/03-fetch.md)。
+细节和三条硬约束见 [android/03-fetch.md](取件-国际服.md)。
 
 ### 阶段 4 导出与校验
 
@@ -190,7 +190,7 @@ _拆包_<日期>\
 | `<桶>/chunk/store.cdb.idx` | `43494458` | `CIDX` |
 | `StaticData.pack` | `3c4c82df` | 无魔数，正常，本身是 AES 密文 |
 
-`store.cdb` 与 `.idx` 两行是 PC 端实测补入的（[pc/01-实测.md](pc/01-实测.md)），安卓侧同构，可同法校验。
+`store.cdb` 与 `.idx` 两行是 PC 端实测补入的（[国际服 PC 实测](../intl-pc/01-实测.md)），安卓侧同构，可同法校验。
 
 ---
 

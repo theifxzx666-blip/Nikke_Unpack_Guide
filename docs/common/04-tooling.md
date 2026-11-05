@@ -4,6 +4,8 @@
 
 底层能力基本都有，缺的是统一入口和上层编排。先定契约，避免每期脚本继续各写一套。
 
+> **2026-11-05 状态**：`tools/nk.py` 已实现 `doctor` / `scan` / `find` / `get` / `cnindex` / `cnget` / `export` 七个子命令，覆盖四场景的读链路。下文其余子命令（`snapshot` / `diff` / `archive` / `report`）仍是契约状态。
+
 ## 总体形态
 
 ```bash
@@ -251,4 +253,4 @@ PYTHONUTF8=1
 | 三模式归档 | 半自动，命名与检查靠人眼 |
 | 联系表 | 每期手写脚本 |
 | 说明文档生成 | 手写 |
-| 统一入口 | 无 |
+| 统一入口 | 已落地 `tools/nk.py`（doctor / scan / find / get / cnindex / cnget / export） |
