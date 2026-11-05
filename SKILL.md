@@ -39,6 +39,9 @@ agent_created: true
    用 `cnindex` 的分片 subprocess 模式，崩了只丢一个包并记账跳过。
 8. **批量才谈效率，单件谈不了**。单件 2.6 s 里 2.05 s 是解释器 + `import UnityPy` + CIDX 解析，
    改代码优化不掉；用 `batch` 一个进程吃整份键表，20 件快 16 倍、100 件快 52 倍。
+9. **先确认资源在哪个服，再动手**。两服版本不同步，同一个活动可能只在一边有
+   （MARIA-n：国际服 198 个包，国服 9 条音频）。`locate` 一条命令 0.4 秒给出两服的命中数与类型构成，
+   不看这个数字就开跑，等于赌运气。
 
 ## 快速开始
 
@@ -46,6 +49,10 @@ agent_created: true
 # 环境（Windows 必须，否则中文与路径双崩）
 export MSYS_NO_PATHCONV=1
 PYTHONUTF8=1
+
+# 第 0 步 —— 先问「这个资源哪个服有、有多少」
+python tools/nk.py locate "marian" --intl-root "D:/.../NIKKEG" --cn-root "E:/.../nikke_Data"
+#   输出两服命中数 + 类型构成 + 一句话结论；只给一侧路径时另一侧明确报「未检查」
 
 # 国际服 PC —— 单件：取件+导出一条命令
 python tools/nk.py scan --scene intl-pc --root "D:/.../NIKKEG"
@@ -132,6 +139,7 @@ PC 取不到 `versionName`/`versionCode`，用文件指纹：各桶 `catalog.ndb
 
 | 要做什么 | 读哪篇 |
 | :--- | :--- |
+| **从线索到成品的完整流程** | **[docs/07-采集工作流.md](docs/07-采集工作流.md)** |
 | 不确定该走哪个场景 | [docs/00-场景矩阵.md](docs/00-场景矩阵.md) |
 | 要看四场景实测样本与数字 | [docs/samples.md](docs/samples.md) |
 | 国际服 PC | [docs/intl-pc/](docs/intl-pc/README.md) → [01-实测](docs/intl-pc/01-实测.md) / [02-场景装配](docs/intl-pc/02-场景装配.md) |

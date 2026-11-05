@@ -17,6 +17,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import struct
 import subprocess
 import sys
@@ -216,6 +217,189 @@ def write_keys(hit, path):
             f.write('\n'.join(keys) + '\n')
         written[b] = p
     return written
+
+
+CN_ID_CACHE = os.path.join('build', '_cat_cn')
+
+
+def cn_catalog_json(root):
+    """国服根 -> Addressables 清单。给 cache 根、nikke_Data、安装目录都能认。"""
+    cands = [os.path.join(root, 'StreamingAssets', 'aa', 'catalog.json'),
+             os.path.join(root, 'nikke_Data', 'StreamingAssets', 'aa', 'catalog.json')]
+    p = os.path.abspath(root)
+    for _ in range(5):
+        cands.append(os.path.join(p, 'StreamingAssets', 'aa', 'catalog.json'))
+        p = os.path.dirname(p)
+    for c in cands:
+        if os.path.exists(c):
+            return c
+    raise FileNotFoundError('找不到国服 catalog.json（StreamingAssets/aa/catalog.json）: %s' % root)
+
+
+def cn_ids(root):
+    """把清单里的明文路径摊成一行一条，作为检索底表。
+
+    41 MB JSON 每次解析约 1 秒，摊平后 8 MB 文本，子串匹配几十毫秒。
+    缓存名带 size+mtime，游戏更新后自动重建，不用手动清。
+    """
+    cat = cn_catalog_json(root)
+    st = os.stat(cat)
+    os.makedirs(CN_ID_CACHE, exist_ok=True)
+    dst = os.path.join(CN_ID_CACHE, 'ids_%d_%d.txt' % (st.st_size, int(st.st_mtime)))
+    if not os.path.exists(dst):
+        with open(cat, encoding='utf-8') as f:
+            ids = json.load(f).get('m_InternalIds') or []
+        tmp = dst + '.tmp'
+        with open(tmp, 'w', encoding='utf-8', newline='\n') as f:
+            f.write('\n'.join(ids) + '\n')
+        os.replace(tmp, dst)
+    return dst, cat
+
+
+def cn_objname(path):
+    """bundle 路径 -> 包内对象名，也就是国服缓存索引里的 name。
+
+        ...\\eventui-marian_assets_story_event_list_marian_part2_9fac3295.bundle
+          -> story_event_list_marian_part2
+    取不到 _assets_ 就退回去掉末 32 hex 的文件名。
+    """
+    name = os.path.basename(path.strip())
+    if name.endswith('.bundle'):
+        name = name[:-7]
+    m = re.search(r'_([0-9a-fA-F]{32})$', name)
+    if m:
+        name = name[:m.start()]
+    i = name.rfind('_assets_')
+    if i >= 0:
+        name = name[i + 8:]
+    return name
+
+
+def _kinds(items, sep=''):
+    """按命名前缀粗分类型，给「这一侧到底有什么」一个直观画像。"""
+    import collections
+    c = collections.Counter()
+    for x in items:
+        if sep:
+            i = x.find(sep)
+            head = x[:i] if i > 0 else x
+        else:
+            head = x.split('_')[0]
+        c[head.replace('(sd)', '').replace('(hd)', '')] += 1
+    return dict(c.most_common(5))
+
+
+def _verdict(servers):
+    """把两服的命中数压成一句「去哪拿」。"""
+    it = servers.get('intl') or {}
+    cn = servers.get('cn') or {}
+    ie, ce = it.get('error'), cn.get('error')
+    if ie and ce:
+        return {'go': 'unknown', 'why': '两服都检查失败：%s / %s' % (ie, ce)}
+    if ie:
+        return {'go': 'cn' if cn.get('total') else 'unknown',
+                'why': '国际服检查失败（%s），只能按国服结果判断' % ie}
+    if ce:
+        return {'go': 'intl' if it.get('total') else 'unknown',
+                'why': '国服检查失败（%s），只能按国际服结果判断' % ce}
+    i, c = it.get('total', 0), cn.get('total', 0)
+    ci, cc = it.get('checked'), cn.get('checked')
+    if ci and cc:
+        if not i and not c:
+            return {'go': 'none',
+                    'why': '两个服都没命中：关键词可能拼错，或客户端版本还没上这个资源'}
+        if i and not c:
+            return {'go': 'intl', 'why': '国服清单里没有，去国际服'}
+        if c and not i:
+            return {'go': 'cn', 'why': '国际服目录里没有，去国服'}
+        hi, lo = max(i, c), min(i, c)
+        why = '两服都有：国际服 %d 条 / 国服 %d 条，按语种和画质选' % (i, c)
+        if lo * 10 < hi:
+            why += '；%s 只有 %d 条，量级差一个数量级以上，先看 samples 确认是不是同一类资源' % (
+                '国服' if c < i else '国际服', lo)
+        return {'go': 'both', 'why': why}
+    if ci:
+        return {'go': 'intl' if i else 'none',
+                'why': '只检查了国际服，命中 %d 条；国服未提供路径' % i}
+    if cc:
+        return {'go': 'cn' if c else 'none',
+                'why': '只检查了国服，命中 %d 条；国际服未提供路径' % c}
+    return {'go': 'unknown', 'why': '两个服的路径都没给，无法检查'}
+
+
+def locate(needle, intl='', cn='', buckets=None, catdir='', cn_db='',
+           keys='', cn_keys=''):
+    """一次问清「这个资源在哪个服、有多少、本地能不能拿」。
+
+    为什么要这条命令：不先分辨服就开跑，会在没有这个活动的服上空转。
+    MARIA-n 在国服清单里只有 9 个四周年小游戏音频，找立绘必然一无所获，
+    而在国际服有 198 个包。两边的口径完全不同：国际服查七桶 catalog，
+    国服查 Addressables 清单 + 本地缓存索引，这里把它们对齐到同一个关键词。
+    """
+    low = needle.lower()
+    rep = {'needle': needle, 'servers': {}}
+
+    if intl:
+        try:
+            hit, miss = find_keys(intl, needle, buckets or INTL_BUCKETS, catdir=catdir)
+            flats = {b: len(v) for b, v in hit.items()}
+            node = {'checked': True, 'total': sum(flats.values()), 'buckets': flats,
+                    'kinds': _kinds([k for b in hit for k in hit[b]], sep='_assets_'),
+                    'samples': [k for b in sorted(hit) for k in hit[b]][:5]}
+            if miss:
+                node['skipped'] = [{'bucket': b, 'why': w} for b, w in miss[:6]]
+            if keys and hit:
+                node['keys_files'] = write_keys(hit, keys)
+                node['note'] = 'batch 一次只吃一个桶，按文件分别跑'
+            rep['servers']['intl'] = node
+        except Exception as e:
+            rep['servers']['intl'] = {'checked': True, 'total': 0,
+                                      'error': '%s: %s' % (type(e).__name__, e)}
+    else:
+        rep['servers']['intl'] = {'checked': False, 'why': '未提供 --intl-root'}
+
+    if cn:
+        try:
+            ids, cat = cn_ids(cn)
+            hits = []
+            with open(ids, encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and low in line.lower():
+                        hits.append(line)
+            objs = [cn_objname(h) for h in hits if h.endswith('.bundle')]
+            db = cn_db or os.path.join('build', 'cn_index.sqlite')
+            local = 0
+            if objs and os.path.exists(db):
+                import sqlite3
+                con = sqlite3.connect('file:%s?mode=ro' % db.replace(os.sep, '/'), uri=True)
+                try:
+                    local = sum(1 for o in objs
+                                if con.execute('SELECT 1 FROM files WHERE name=? LIMIT 1',
+                                               (o,)).fetchone())
+                finally:
+                    con.close()
+            node = {'checked': True, 'catalog': cat, 'total': len(hits),
+                    'bundles': len(objs), 'local_bundles': local,
+                    'kinds': _kinds(objs), 'samples': objs[:5]}
+            if objs and not os.path.exists(db):
+                node['index'] = '索引未建，只确认清单里有；建索引才知道本地是否已下载'
+            if cn_keys and objs:
+                d = os.path.dirname(os.path.abspath(cn_keys))
+                if d:
+                    os.makedirs(d, exist_ok=True)
+                with open(cn_keys, 'w', encoding='utf-8', newline='\n') as f:
+                    f.write('\n'.join(objs) + '\n')
+                node['keys_file'] = cn_keys
+            rep['servers']['cn'] = node
+        except Exception as e:
+            rep['servers']['cn'] = {'checked': True, 'total': 0,
+                                    'error': '%s: %s' % (type(e).__name__, e)}
+    else:
+        rep['servers']['cn'] = {'checked': False, 'why': '未提供 --cn-root'}
+
+    rep['verdict'] = _verdict(rep['servers'])
+    return rep
 
 
 def intl_root(root):
@@ -800,7 +984,7 @@ def doctor(scene, root):
 def main():
     ap = argparse.ArgumentParser(prog='nk')
     ap.add_argument('cmd', choices=['doctor', 'scan', 'find', 'get', 'pull', 'batch',
-                                    'cnindex', 'cnget', 'export', '_cnpart'])
+                                    'locate', 'cnindex', 'cnget', 'export', '_cnpart'])
     ap.add_argument('args', nargs='*')
     ap.add_argument('--scene', default='intl-pc')
     ap.add_argument('--root', default='')
@@ -815,9 +999,12 @@ def main():
     ap.add_argument('--cat', default='', help='find: 复用已解密的 catalog 目录，跳过重新解包')
     ap.add_argument('--no-precheck', action='store_true', help='batch: 跳过 idx 预检')
     ap.add_argument('--skip-missing', action='store_true', help='batch: 预检后只拉能拉的')
+    ap.add_argument('--intl-root', default='', help='locate: 国际服客户端根（PC）')
+    ap.add_argument('--cn-root', default='', help='locate: 国服根，cache/nikke_Data/安装目录皆可')
+    ap.add_argument('--cn-keys', default='', help='locate: 把国服命中对象名写成清单')
     a = ap.parse_args()
     need = {'find': 1, 'get': 1, 'pull': 1, 'batch': 1, 'cnget': 1, 'export': 1,
-            '_cnpart': 2}
+            'locate': 1, '_cnpart': 2}
     if a.cmd in need and len(a.args) < need[a.cmd]:
         ap.error('%s 需要 %d 个位置参数（键 / 键表路径 / bundle 路径）' % (a.cmd, need[a.cmd]))
     if a.cmd in ('pull', 'batch', 'export'):
@@ -878,6 +1065,37 @@ def main():
             rep['listed'] = 'all' if a.all else min(40, total)
         print(json.dumps(rep, ensure_ascii=False))
         return 0 if total else 1
+
+    if a.cmd == 'locate':
+        rep = locate(a.args[0], intl=a.intl_root, cn=a.cn_root, catdir=a.cat,
+                     cn_db=a.db, keys=a.keys, cn_keys=a.cn_keys)
+        for key, label in (('intl', '国际服'), ('cn', '国服')):
+            n = rep['servers'].get(key) or {}
+            if not n.get('checked'):
+                print('== %-4s 未检查（%s）' % (label, n.get('why', '')))
+                continue
+            if n.get('error'):
+                print('== %-4s 失败：%s' % (label, n['error']))
+                continue
+            extra = ''
+            if key == 'cn':
+                extra = '  包 %d  本地已有 %d' % (n.get('bundles', 0), n.get('local_bundles', 0))
+            elif n.get('buckets'):
+                extra = '  ' + ' '.join('%s:%d' % kv for kv in sorted(n['buckets'].items()))
+            print('== %-4s 命中 %d%s' % (label, n.get('total', 0), extra))
+            if n.get('kinds'):
+                print('    构成 %s' % ' '.join('%s:%d' % kv for kv in n['kinds'].items()))
+            for s in n.get('samples', [])[:5]:
+                print('    %s' % s)
+            kf = n.get('keys_files')
+            if isinstance(kf, dict):
+                for b, p in sorted(kf.items()):
+                    print('    键表 %s -> %s' % (b, p))
+            elif kf:
+                print('    清单 -> %s' % kf)
+        print('>> 建议：%s  %s' % (rep['verdict']['go'], rep['verdict']['why']))
+        print(json.dumps(rep, ensure_ascii=False))
+        return 0 if rep['verdict']['go'] != 'none' else 1
 
     if a.cmd == 'get':
         key = a.args[0]

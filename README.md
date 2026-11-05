@@ -27,6 +27,9 @@ export MSYS_NO_PATHCONV=1          # Git Bash 调 adb 前必做
 # 判场景
 python tools/nk.py doctor --scene intl-pc --root "D:/.../NIKKEG"
 
+# 先确认资源在哪个服：两服命中数 + 类型构成 + 一句结论（0.4 s）
+python tools/nk.py locate "marian" --intl-root "D:/.../NIKKEG" --cn-root "E:/.../nikke_Data"
+
 # 国际服 PC：解七桶清单 → 查键 → 取包+导出（一条命令）
 python tools/nk.py scan   --scene intl-pc --root "D:/.../NIKKEG"
 python tools/nk.py find   --scene intl-pc --root "D:/.../NIKKEG" --bucket dp "c010_00"
@@ -101,7 +104,7 @@ New-Item -ItemType Junction -Path "$env:USERPROFILE\.workbuddy\skills\nikke-unpa
 | 静态表（关卡/数值） | 国际服 PC 路径不存在；安卓在 `cache/StaticData.pack`，双层 AES 在部分版本解不开 |
 | 动态头像框 | 国际服 PC 无该族；安卓有 |
 | 国服定位 | 清单与缓存路径无确定映射，必须建对象名索引反查 |
-| 工具 | 子命令契约见 [docs/common/04-tooling.md](docs/common/04-tooling.md)，`tools/nk.py` 实现了 doctor/scan/find/get/pull/batch/cnindex/cnget/export |
+| 工具 | 子命令契约见 [docs/common/04-tooling.md](docs/common/04-tooling.md)，`tools/nk.py` 实现了 doctor/scan/locate/find/get/pull/batch/cnindex/cnget/export |
 | 效率 | [docs/05-效率实测.md](docs/05-效率实测.md)：批量比逐件快 16 倍（100 件约 52 倍），附瓶颈分解与剩余优化项 |
 
 ## 免责
