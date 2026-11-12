@@ -45,6 +45,34 @@ agent_created: true
 10. **键表别 strip，注释只认 `# `**。国服真实存在以空格开头的对象名（` sound_hacking_active`）
     和以 `##` 开头的名字（`##_board_touchtext`）。按常规「`#` 即注释 + strip 每行」处理，
     这两种会被静默吞掉，症状是「200 个键只跑了 198 个，且首行报查不到」。
+11. **「文案里没有」不等于「客户端没有」**。`.lss` 只有 Key/zh-CN 文案对，奖励数值在静态表
+    （`RewardTable` 等 71 张，见 `07_文本/任务与奖励/`）。判定某个数据「拿不到」之前，
+    必须先把静态表翻一遍，否则会把能做的功能写进 `unavailable`。
+12. **立绘是 Spine，不是 Sprite 拼图**。`char_*_uc_tex.png` 是 Spine 图集贴图，
+    `00/01/02/03` 是四张不同立绘而非四块拼图。按 atlas `bounds` 硬拼出来是散落碎片
+    （反例见 `06_骨骼/待机/2B_c810_00/katana_test.png`）。正确路径：`_render.html` 走 Spine 渲染。
+13. **Spine 运行时只认自己的大版本，所以库里放了两套**。582 组里 570 组是 4.1.20、
+    12 组是 4.0.47。4.1 播放器读 4.0 资源会报 `Region not found in atlas: xxx2 (sequence: xxx)`
+    （把普通区域误读成序列帧），4.0 播放器读 4.1 资源会报 `Could not load skeleton binary`。
+    现配置：`_render.html` + `_spine-player.js`（4.1）管 570 组，
+    `_render40.html` + `_spine-player-4.0.js`（4.0.31）管那 12 组，
+    `_render_alpha.js` 的第 4 个参数就是选哪套页面。别再试图用一套通吃。
+14. **渲染驱动里的页面路径写错 = 全部静默超时**。驱动从传入 URL 取 pathname 请求页面，
+    占位地址写成 `http://x/x/_render.html` 就会 404，而症状只是「每条都超时」。
+    启动时先打印一行 `[自检] HTTP 200/404`，比事后猜快得多。
+15. **PyInstaller 打包 GUI 用 `--console` 再隐藏控制台**。`--windowed` 下 `sys.stdout`
+    为 None，pywebview 内部 print 即静默失败，表现是「进程活着但没有窗口、零异常」。
+    解法：`--console` 打包 + `ShowWindow(GetConsoleWindow(), SW_HIDE)`。
+16. **headless 截图别指望 alpha 通道**。给页面设全透明背景
+    （`Emulation.setDefaultBackgroundColorOverride` 或 `backgroundColor:"#00000000"`）后，
+    `Page.captureScreenshot` 会永久挂住（实测 60 s 不返回）；不加覆盖则出 RGB，
+    或出「背景 alpha 满值带噪点」的假 RGBA。可靠做法是 `_render_alpha.js`：
+    白底 + 黑底各拍一张，`a = 1-(Cw-Cb)/255, C = Cb/a` 反解。PNG 无损所以是精确反解，
+    实测与 `toDataURL` 的原始结果逐像素差 0.01。
+17. **大图集渲染要用 `Page.captureScreenshot`，不要 `canvas.toDataURL`**。
+    4096 图集在 SwiftShader 下 toDataURL 超过 12 s 不回，随后整页变「无响应」；
+    换 captureScreenshot 后同一条资源 1.5 s 出图。原 51 张卡死里有 39 张是这个原因，
+    不是资源坏了。
 
 ## 快速开始
 
