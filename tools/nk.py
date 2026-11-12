@@ -75,20 +75,146 @@ def require(*mods):
     sys.exit(4)
 
 
+# ---------------------------------------------------------------- 格式校验
+# CIDX 尾部 16B、CBLB 头 12B 的校验和是 SpookyHashV2 的 128 位结果。
+# 只实现短消息路径（<192B）：调用点全是 12B 头或 28B 记录。
+_M64 = (1 << 64) - 1
+_SPOOKY_C = 0xDEADBEEFDEADBEEF
+
+
+def _rot64(x, n):
+    return ((x << n) | (x >> (64 - n))) & _M64
+
+
+def _rd64(b, i):
+    return int.from_bytes(b[i:i + 8], 'little')
+
+
+def _rdtail(b, i, n):
+    return int.from_bytes(b[i:i + n], 'little') if n > 0 else 0
+
+
+def _spooky_mix(a, b, c, d):
+    c = _rot64(c, 50); c = (c + d) & _M64; a ^= c
+    d = _rot64(d, 52); d = (d + a) & _M64; b ^= d
+    a = _rot64(a, 30); a = (a + b) & _M64; c ^= a
+    b = _rot64(b, 41); b = (b + c) & _M64; d ^= b
+    c = _rot64(c, 54); c = (c + d) & _M64; a ^= c
+    d = _rot64(d, 48); d = (d + a) & _M64; b ^= d
+    a = _rot64(a, 38); a = (a + b) & _M64; c ^= a
+    b = _rot64(b, 37); b = (b + c) & _M64; d ^= b
+    c = _rot64(c, 62); c = (c + d) & _M64; a ^= c
+    d = _rot64(d, 34); d = (d + a) & _M64; b ^= d
+    a = _rot64(a, 5); a = (a + b) & _M64; c ^= a
+    b = _rot64(b, 36); b = (b + c) & _M64; d ^= b
+    return a, b, c, d
+
+
+def _spooky_end(a, b, c, d):
+    d ^= c; c = _rot64(c, 15); d = (d + c) & _M64
+    a ^= d; d = _rot64(d, 52); a = (a + d) & _M64
+    b ^= a; a = _rot64(a, 26); b = (b + a) & _M64
+    c ^= b; b = _rot64(b, 51); c = (c + b) & _M64
+    d ^= c; c = _rot64(c, 28); d = (d + c) & _M64
+    a ^= d; d = _rot64(d, 9); a = (a + d) & _M64
+    b ^= a; a = _rot64(a, 47); b = (b + a) & _M64
+    c ^= b; b = _rot64(b, 54); c = (c + b) & _M64
+    d ^= c; c = _rot64(c, 32); d = (d + c) & _M64
+    a ^= d; d = _rot64(d, 25); a = (a + d) & _M64
+    b ^= a; a = _rot64(a, 63); b = (b + a) & _M64
+    return a, b, c, d
+
+
+def _spooky_short(data, h1=0, h2=0):
+    """SpookyHashV2 短消息（<192B），等价 Unity Hash128.Append 的一次调用。"""
+    n = len(data)
+    if n >= 192:
+        raise ValueError('_spooky_short 只接受 <192B 的块，收到 %d' % n)
+    a, b, c, d = h1, h2, _SPOOKY_C, _SPOOKY_C
+    i, rem = 0, n % 32
+    if n > 15:
+        for _ in range(n // 32):
+            c = (c + _rd64(data, i)) & _M64
+            d = (d + _rd64(data, i + 8)) & _M64
+            a, b, c, d = _spooky_mix(a, b, c, d)
+            a = (a + _rd64(data, i + 16)) & _M64
+            b = (b + _rd64(data, i + 24)) & _M64
+            i += 32
+        if rem >= 16:
+            c = (c + _rd64(data, i)) & _M64
+            d = (d + _rd64(data, i + 8)) & _M64
+            a, b, c, d = _spooky_mix(a, b, c, d)
+            i += 16
+            rem -= 16
+    d = (d + ((n << 56) & _M64)) & _M64
+    if rem == 0:
+        c = (c + _SPOOKY_C) & _M64
+        d = (d + _SPOOKY_C) & _M64
+    else:
+        c = (c + _rdtail(data, i, min(rem, 8))) & _M64
+        if rem > 8:
+            d = (d + _rdtail(data, i + 8, rem - 8)) & _M64
+    a, b, c, d = _spooky_end(a, b, c, d)
+    return a, b
+
+
+def cidx_parse(raw, path, deep=False, build_index=True):
+    """CIDX -> (idx, meta)。版本/长度不符直接抛，别让残缺索引伪装成「块不存在」。"""
+    if len(raw) < 28:
+        raise ValueError('CIDX 太短（%dB）: %s' % (len(raw), path))
+    magic, ver, cnt = struct.unpack_from('<4sII', raw, 0)
+    if magic != b'CIDX':
+        raise ValueError('CIDX magic 不符: %r: %s' % (magic, path))
+    if ver != 1:
+        raise ValueError('CIDX 版本 %d != 1（格式变了，先确认客户端）: %s' % (ver, path))
+    want = 12 + 28 * cnt + 16
+    if len(raw) != want:
+        raise ValueError('CIDX 长度不符: %d != 12+28*%d+16=%d（截断或改版）: %s'
+                         % (len(raw), cnt, want, path))
+    idx = {} if build_index else None
+    h1 = h2 = 0
+    if deep:
+        h1, h2 = _spooky_short(raw[:12], h1, h2)
+    for k in range(cnt):
+        o = 12 + k * 28
+        if idx is not None:
+            idx[raw[o:o + 16]] = struct.unpack_from('<QI', raw, o + 16)
+        if deep:
+            h1, h2 = _spooky_short(raw[o:o + 28], h1, h2)
+    if deep:
+        got = (int.from_bytes(raw[-16:-8], 'little'), int.from_bytes(raw[-8:], 'little'))
+        if (h1, h2) != got:
+            raise ValueError('CIDX 校验和不符: 计算 %016x-%016x != 文件 %016x-%016x: %s'
+                             % (h1, h2, got[0], got[1], path))
+    meta = {'version': ver, 'count': cnt, 'bytes': len(raw),
+            'checksum': 'ok' if deep else 'skipped'}
+    return idx, meta
+
+
 # ---------------------------------------------------------------- 国际服：清单
 
-def nkdb_decrypt(src, dst):
-    """NKDB -> 明文 SQLite。密钥明文写在偏移 8，每文件不同，没有全局密钥。"""
+def nkdb_decrypt_bytes(src):
+    """NKDB -> SQLite bytes。密钥明文写在偏移 8，每文件不同，没有全局密钥。
+
+    严格模式：版本必须为 1，每段必须 zlib 成功，解出必须是 SQLite。
+    以前 `except: pass` 会把「格式变了」吞成「后面 sqlite 报 file is not a database」。
+    """
     data = open(src, 'rb').read()
+    if data[:16] == b'SQLite format 3\x00':
+        return data, {'segments': 0, 'bytes': len(data), 'key': ''}
     if data[:4] != b'NKDB':
         raise ValueError('不是 NKDB: %s' % src)
+    ver = int.from_bytes(data[4:8], 'big')
+    if ver != 1:
+        raise ValueError('NKDB 版本 %d != 1（格式变了，先确认客户端）: %s' % (ver, src))
     aes_key = data[8:24]
     seg_size = int.from_bytes(data[24:28], 'big')
     seg_cnt = int.from_bytes(data[28:32], 'big')
     lbc = 5 if seg_size * seg_cnt > 0xFFFFFFFF else 4
-    pos, cur, segs = 32, None, []
+    pos = 32
     cur = int.from_bytes(data[pos:pos + lbc], 'big')
     pos += lbc
+    segs = []
     for i in range(seg_cnt):
         nxt = int.from_bytes(data[pos:pos + lbc], 'big')
         pos += lbc
@@ -101,11 +227,20 @@ def nkdb_decrypt(src, dst):
         seg = AES.new(aes_key, AES.MODE_OFB, iv=iv).decrypt(data[off:off + ln])
         try:
             seg = zlib.decompress(seg)
-        except Exception:
-            pass
+        except zlib.error as e:
+            raise ValueError('NKDB 第 %d 段 zlib 失败（off=%d len=%d）: %s'
+                             % (idx, off, ln, e))
         out += seg
-    open(dst, 'wb').write(bytes(out))
-    return {'segments': len(segs), 'bytes': len(out), 'key': aes_key.hex()}
+    if out[:16] != b'SQLite format 3\x00':
+        raise ValueError('NKDB 解出的不是 SQLite（头=%r）: %s'
+                         % (bytes(out[:16]), src))
+    return bytes(out), {'segments': len(segs), 'bytes': len(out), 'key': aes_key.hex()}
+
+
+def nkdb_decrypt(src, dst):
+    out, meta = nkdb_decrypt_bytes(src)
+    open(dst, 'wb').write(out)
+    return meta
 
 
 _CIDX_CACHE = {}
@@ -116,6 +251,9 @@ def load_cidx(path):
 
     按 (路径, mtime, 大小) 缓存：单个 idx 6~7 MB，批量取件时逐件重读纯属浪费。
     客户端更新会改 mtime，缓存自然失效。
+
+    只做 magic/version/长度三条硬校验；校验和留给 `doctor --deep`，
+    因为 core 的 26 万条链式哈希要 2~3 秒，不能挂在每次取件上。
     """
     try:
         st = os.stat(path)
@@ -125,18 +263,17 @@ def load_cidx(path):
     if ck and ck in _CIDX_CACHE:
         return _CIDX_CACHE[ck]
     raw = open(path, 'rb').read()
-    magic, _ver, cnt = struct.unpack_from('<4sII', raw, 0)
-    if magic != b'CIDX':
-        raise ValueError('不是 CIDX: %s' % path)
-    idx = {}
-    for k in range(cnt):
-        o = 12 + k * 28
-        if o + 28 > len(raw):
-            break
-        idx[raw[o:o + 16]] = struct.unpack_from('<QI', raw, o + 16)
+    idx, _meta = cidx_parse(raw, path)
     if ck:
         _CIDX_CACHE[ck] = idx
     return idx
+
+
+def verify_cidx(path):
+    """深检：长度 + 版本 + 尾部 16B SpookyHashV2 校验和。"""
+    raw = open(path, 'rb').read()
+    _idx, meta = cidx_parse(raw, path, deep=True, build_index=False)
+    return meta
 
 
 INTL_BUCKETS = ('core', 'dp', 'fd', 'en', 'ja', 'ko', 'saus')
@@ -467,6 +604,34 @@ def _read_store(path, pos, size):
         return f.read(size)
 
 
+def store_probe(path, idx=None):
+    """CBLB 头校验；传 idx 时再验 `256 + Σsize == 文件大小`。"""
+    size = os.path.getsize(path)
+    with open(path, 'rb') as f:
+        h = f.read(256)
+    if len(h) < 256:
+        raise ValueError('store.cdb 短于 256B 头: %d' % len(h))
+    if h[:4] != b'CBLB':
+        raise ValueError('store.cdb magic 不符: %r' % h[:4])
+    ver = struct.unpack_from('<I', h, 4)[0]
+    if ver != 1:
+        raise ValueError('store.cdb 版本 %d != 1（格式变了）' % ver)
+    h1, h2 = _spooky_short(h[:12])
+    got = (int.from_bytes(h[12:20], 'little'), int.from_bytes(h[20:28], 'little'))
+    if (h1, h2) != got:
+        raise ValueError('store.cdb 头校验和不符: 计算 %016x-%016x != 文件 %016x-%016x'
+                         % (h1, h2, got[0], got[1]))
+    meta = {'version': ver, 'bytes': size, 'header_checksum': 'ok'}
+    if idx is not None:
+        end = 256 + sum(sz for _pos, sz in idx.values())
+        meta['indexed_end'] = end
+        if end != size:
+            raise ValueError('store.cdb 与 idx 不闭合: %d != %d（差 %d 字节）'
+                             % (size, end, size - end))
+        meta['coverage'] = 'exact'
+    return meta
+
+
 def _adb_dd(dev_path, pos, size):
     """exec-out + skip_bytes,count_bytes：adb shell 会把 dd 统计行混进 stdout。"""
     cmd = ['adb', 'exec-out',
@@ -744,6 +909,7 @@ def export(bundle, out_dir, only=''):
     want = [w.strip().lower() for w in only.split(',') if w.strip()]
     stats = {'Texture2D': 0, 'Sprite': 0, 'TextAsset': 0, 'AudioClip': 0, 'Mesh': 0,
              'kept': 0, 'skipped': 0}
+    saved = {'Texture2D': 0, 'Sprite': 0}
     sizes = []
     for o in env.objects:
         t = o.type.name
@@ -763,6 +929,18 @@ def export(bundle, out_dir, only=''):
             try:
                 img = d.image
                 img.save(os.path.join(out_dir, safe + '.png'))
+                saved['Texture2D'] += 1
+                sizes.append('%dx%d' % img.size)
+            except Exception:
+                pass
+        elif t == 'Sprite':
+            # 图集类资源（icons-char-si / icons-dynamic 等）整包只有 1 张 Texture2D +
+            # 成百上千个 Sprite；不裁 Sprite 就永远只能拿到拼版大图。
+            # d.image 会按 rect/atlas 裁好并带 alpha，直接落盘即单图。
+            try:
+                img = d.image
+                img.save(os.path.join(out_dir, safe + '.png'))
+                saved['Sprite'] += 1
                 sizes.append('%dx%d' % img.size)
             except Exception:
                 pass
@@ -781,7 +959,14 @@ def export(bundle, out_dir, only=''):
                     open(os.path.join(out_dir, safe + '.wav'), 'wb').write(wav)
             except Exception:
                 pass
+    stats['saved'] = saved
     stats['sizes'] = sorted(set(sizes))[:5]
+    # 自检：命中但一张没落盘 = UnityPy 的 .image 链路坏了（升级/换 typetree 都会这样），
+    # 以前这种失败是静默的，调用方只看到 kept>0 以为成功，最后拿到空目录。
+    for k in ('Texture2D', 'Sprite'):
+        if stats[k] and not saved[k]:
+            sys.stderr.write('[WARN] %s 命中 %d 个但 0 张落盘 —— 检查 UnityPy 版本或 typetree\n'
+                             % (k, stats[k]))
     return stats
 
 
@@ -1030,7 +1215,53 @@ def batch(scene, root, keys_file, out_root, bucket='core', nau='', adb=None,
 
 # ---------------------------------------------------------------- 自检
 
-def doctor(scene, root):
+def _deep_intl(root):
+    """七桶容器级深检：NKDB 版本/段解压、CIDX 版本/长度/校验和、CBLB 头/总长。"""
+    patch = intl_root(root)
+    out = {'supported': True, 'pass': True, 'buckets': {}}
+    for b in ('core', 'dp', 'fd', 'en', 'ja', 'ko', 'saus'):
+        base = os.path.join(patch, b)
+        if not os.path.isdir(base):
+            continue
+        item, idx = {}, None
+        try:
+            data, meta = nkdb_decrypt_bytes(os.path.join(base, 'catalog.ndb'))
+            if not data.startswith(b'SQLite format 3\x00'):
+                raise ValueError('解出的 catalog 不是 SQLite')
+            item['catalog'] = meta
+        except Exception as e:
+            item['catalog'] = {'error': '%s: %s' % (type(e).__name__, e)}
+            out['pass'] = False
+        chunk_dir = os.path.join(base, 'chunk')
+        idxp = os.path.join(chunk_dir, 'store.cdb.idx')
+        storep = os.path.join(chunk_dir, 'store.cdb')
+        if not os.path.isdir(chunk_dir) or not (os.path.exists(idxp) or os.path.exists(storep)):
+            item['store'] = {'missing': True, 'detail': '该桶未下载数据体（无 chunk/）'}
+            out['buckets'][b] = item
+            continue
+        try:
+            idx, meta = cidx_parse(open(idxp, 'rb').read(), idxp, deep=True)
+            item['cidx'] = meta
+        except Exception as e:
+            item['cidx'] = {'error': '%s: %s' % (type(e).__name__, e)}
+            out['pass'] = False
+        try:
+            item['store'] = store_probe(storep, idx)
+        except Exception as e:
+            item['store'] = {'error': '%s: %s' % (type(e).__name__, e)}
+            out['pass'] = False
+        out['buckets'][b] = item
+    return out
+
+
+def doctor_deep(scene, root):
+    if scene != 'intl-pc':
+        return {'supported': False, 'pass': True,
+                'reason': '容器级深检目前只覆盖 intl-pc；adb 先拉清单与 idx 到本地再跑'}
+    return _deep_intl(root)
+
+
+def doctor(scene, root, deep=False):
     rep = {'scene': scene, 'root': root, 'checks': []}
 
     def add(name, ok, detail=''):
@@ -1081,6 +1312,14 @@ def doctor(scene, root):
         except ImportError:
             add('依赖 ' + mod, False, '未安装')
     rep['pass'] = all(c['ok'] for c in rep['checks'])
+    if deep:
+        try:
+            d = doctor_deep(scene, root)
+        except Exception as e:
+            d = {'supported': True, 'pass': False,
+                 'error': '%s: %s' % (type(e).__name__, e)}
+        rep['deep'] = d
+        rep['pass'] = rep['pass'] and d.get('pass', True)
     return rep
 
 
@@ -1098,6 +1337,8 @@ def main():
     ap.add_argument('--jobs', type=int, default=4)
     ap.add_argument('--limit', type=int, default=0)
     ap.add_argument('--all', action='store_true', help='find: 遍历全部七桶，不截断')
+    ap.add_argument('--deep', action='store_true',
+                    help='doctor: 容器级深检（NKDB 版本/段解压、CIDX 校验和、CBLB 头/总长）')
     ap.add_argument('--keys', default='', help='find: 把结果写成键表，供 batch 直接消费')
     ap.add_argument('--cat', default='', help='find: 复用已解密的 catalog 目录，跳过重新解包')
     ap.add_argument('--no-precheck', action='store_true', help='batch: 跳过 idx 预检')
@@ -1116,7 +1357,7 @@ def main():
     out = a.out
 
     if a.cmd == 'doctor':
-        rep = doctor(a.scene, a.root)
+        rep = doctor(a.scene, a.root, deep=a.deep)
         print(json.dumps(rep, ensure_ascii=False, indent=2))
         return 0 if rep['pass'] else 2
 

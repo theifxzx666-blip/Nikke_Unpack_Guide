@@ -114,6 +114,20 @@ python tools/nk.py cnget   --root "<cache 根>" "<32hex 或对象名>" -o x.bund
 python tools/nk.py locate "marian" --cn-root "E:/.../nikke_Data" --cn-keys cn_keys.txt
 python tools/nk.py batch cn_keys.txt --scene cn-pc --root "<cache 根>" -o out/ --jobs 4 --skip-missing
 #   国服预检查的是「索引里有没有这个名字」，没有 idx 可查（整文件复制，无分块）
+
+# 立绘头像（SI）单个取图 —— 图集包，按 Sprite 名直取
+python tools/nk.py find --scene intl-pc --root "D:/.../NIKKEG" --bucket dp "icons-char-si"
+#   → icons-char-si(hd)_assets_all_<hash>.bundle（128²，优先用 hd）与 (sd) 同名包
+python tools/nk.py pull --scene intl-pc --root "D:/.../NIKKEG" --bucket dp \
+    "icons-char-si(hd)_assets_all_<hash>.bundle" -o out/si --only si_c019_00_s
+#   一包 20 MB / 559 个 Sprite；--only 传代号片段即可，不传会导出全部 559 张
+
+# 更省事：tools/get_si.py 会自己找客户端根、自己查键、自己改名落库
+python tools/get_si.py c019_00              # → 资源库/10_用户层/11_角色立绘/SI立绘/si_c019_00_s_intl.png
+python tools/get_si.py si_c472_00_s -o D:/tmp/si --force
+# 国服独有角色（画皮/婴宁这种国际服没有的）走 --cn：单角色小包 + NAU 解密 + 取 Texture2D
+python tools/get_si.py c8005_00 --cn        # → si_c8005_00_s_uc_tex.png
+#   前提是该角色的图标已在国服本地缓存；命中 0 会明确报「清单有键但缓存没下载」
 ```
 
 **批量是唯一有效的提速手段**。单件 2.6 s 里有 2.05 s 是解释器、`import UnityPy`（1.75 s）与
@@ -131,6 +145,7 @@ CIDX 解析（152 ms）的固定成本，逐件起进程等于每件都重付一
 - **资源根不在安装目录**。在 `<安装目录>/Unity/com_proximabeta_NIKKE/com.shiftup.patch`；`game` 下只有 exe。最省事的定位法是读 `%LOCALAPPDATA%Low\com_proximabeta\NIKKE\Player.log` 里的 `trace GetGameResourcePath`。
 - 七桶一次解密只要 2 秒，之后任意键可查。
 - `.idx` 100% 覆盖物理字节（`256 + Σ(idx.size) == store.cdb`，五桶闭合）⇒ 查不到的块物理不存在，`pak_offset` 反推是死路。
+- **SI 头像是图集，不是每角色一个包**：`icons-char-si(hd)_assets_all_*` / `(sd)_assets_all_*` 各只有 1 个包，内含全部 559 个 `si_c<ID>_<皮肤>_s`（128×128）。按 Sprite 名直取可行（`--only si_c019_00_s`）；用图像指纹反查「这张截图属于谁」不可行——图集是任意位置紧密打包，网格法对不上。
 - 互动型/装配型场景（`spotbackground`）要还原装配再渲染，不能直接导一张图。
 
 ### 国际服安卓（ADB）

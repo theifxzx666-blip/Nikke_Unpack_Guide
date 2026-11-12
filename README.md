@@ -26,6 +26,7 @@ export MSYS_NO_PATHCONV=1          # Git Bash 调 adb 前必做
 
 # 判场景
 python tools/nk.py doctor --scene intl-pc --root "D:/.../NIKKEG"
+python tools/nk.py doctor --scene intl-pc --root "D:/.../NIKKEG" --deep   # 容器级：版本/长度/校验和
 
 # 先确认资源在哪个服：两服命中数 + 类型构成 + 一句结论（0.4 s）
 python tools/nk.py locate "marian" --intl-root "D:/.../NIKKEG" --cn-root "E:/.../nikke_Data"
@@ -101,7 +102,8 @@ New-Item -ItemType Junction -Path "$env:USERPROFILE\.workbuddy\skills\nikke-unpa
 | 项 | 结论 |
 | :--- | :--- |
 | 低清 `(sd)` 缺块 | 国际服 `.idx` 100% 覆盖物理字节，缺的块物理不存在，只能靠游戏内按需下载补 |
-| 静态表（关卡/数值） | 国际服 PC 路径不存在；安卓在 `cache/StaticData.pack`，双层 AES 在部分版本解不开 |
+| 静态表（关卡/数值） | 客户端内没有该文件：走 lobby API 取 pack + salt1/salt2（随版本下发）→ 双层 AES → mpk。脚本见 `04_临时车间\脚本\tmp_fetch_staticdata_info.py` / `tmp_unpack_staticdata.py`；逐表残余与 SHA256 见 `静态包拉取_20261111_153\manifest.core.json` |
+| 格式变更 | 每个客户端版本先跑 `python tools/nk.py doctor ... --deep`：NKDB/CIDX/CBLB 的版本、长度、校验和任一不符会直接报错，不会静默产出垃圾 |
 | 动态头像框 | 国际服 PC 无该族；安卓有 |
 | 国服定位 | 清单与缓存路径无确定映射，必须建对象名索引反查 |
 | 工具 | 子命令契约见 [docs/common/04-tooling.md](docs/common/04-tooling.md)，`tools/nk.py` 实现了 doctor/scan/locate/find/get/pull/batch/cnindex/cnget/export |

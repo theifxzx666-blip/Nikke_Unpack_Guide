@@ -31,7 +31,10 @@ nikke-extract <子命令> [参数]
 ```bash
 nikke-extract doctor
 nikke-extract doctor --json          # 给下游程序读
+nikke-extract doctor --deep          # 容器级深检（已实现，仅 intl-pc）
 ```
+
+`--deep` 逐桶验三件事：NKDB 版本与每段 zlib、CIDX 版本/长度方程/尾部 SpookyHashV2 校验和、CBLB 头校验和与 `256 + Σsize == 文件大小`。没有 `chunk/` 的空桶记 `missing`，不算失败；版本或校验和不符直接报「格式变了」，不静默产出。
 
 检查 8 项，每项给出通过、不通过或建议动作：
 
