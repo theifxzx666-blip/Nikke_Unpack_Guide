@@ -30,11 +30,13 @@ os.chdir(ROOT)                                       # nk.py 以 CWD 为工作�
 
 import nk  # noqa: E402
 
-SI_DIR = Path("F:/Codex/Nikke/01_母体/B_客户端资源/00_资源库/10_用户层/11_角色立绘/SI立绘")
+# 本机路径一律走环境变量，仓库内不写死任何人的盘符（2026-11-13 修正：原为写死的 F:/E: 路径，他人 clone 后必然失败）
+SI_DIR = Path(os.environ.get("NIKKE_SI_DIR") or (ROOT / "out" / "SI立绘"))
 # 国服（WeGame PC）：清单是明文 Addressables catalog，缓存按 <桶>/<hash> 存，NKAB 需 NAU
-CN_CAT = Path(os.environ.get("LOCALAPPDATA", "")) / ".." / "LocalLow" / "com_tencent" / "胜利女神：新的希望" / "com.unity.addressables"
-CN_CACHE = Path("E:/WeGameApps/rail_apps/胜利女神：新的希望(2002017)/nikke_Data/runtime_data/cache")
-NAU = Path("F:/Codex/Nikke/01_母体/B_客户端资源/NAU/NAU.exe")
+CN_CAT = Path(os.environ.get("NIKKE_CN_CAT")
+              or (Path(os.environ.get("LOCALAPPDATA", "")) / ".." / "LocalLow" / "com_tencent" / "胜利女神：新的希望" / "com.unity.addressables"))
+CN_CACHE = Path(os.environ["NIKKE_CN_CACHE"]) if os.environ.get("NIKKE_CN_CACHE") else None
+NAU = Path(os.environ.get("NIKKE_NAU") or (ROOT.parent / "NAU" / "NAU.exe"))
 
 
 def cn_lookup(code):
@@ -51,6 +53,8 @@ def cn_lookup(code):
                 hits.append(h)
     if not hits:
         return None, "国服清单里没有 si_%s_s（未上线 / 键名变了）" % code
+    if CN_CACHE is None:
+        return None, "未设置国服缓存根：请设环境变量 NIKKE_CN_CACHE 指向 <安装目录>/nikke_Data/runtime_data/cache"
     if not CN_CACHE.is_dir():
         return None, "国服缓存目录不存在: %s" % CN_CACHE
     for h in set(hits):
@@ -159,7 +163,7 @@ def run_cn(a):
     """国服分支：每角色一个小包，命中率取决于本地缓存有没有下载过该角色图标。"""
     out_dir = Path(a.out)
     out_dir.mkdir(parents=True, exist_ok=True)
-    rep = {"scene": "cn-pc", "cache": str(CN_CACHE), "items": []}
+    rep = {"scene": "cn-pc", "cache": str(CN_CACHE or ""), "items": []}
     ok_all = True
     for raw in a.names:
         m = re.search(r"c(\d+)_(\d+)", raw)

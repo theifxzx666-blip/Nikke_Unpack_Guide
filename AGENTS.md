@@ -68,5 +68,7 @@ python -c "import UnityPy, zstandard, PIL, Crypto; print('ok')"   # 依赖自查
 | 安卓 `saus/raw` 明文命名 | 153.6.10 实为 16 B hash hex，与国际服 PC 一致 | 已在 [docs/intl-android/](docs/intl-android/README.md) 更正 |
 | 国服缓存是 NKAB 密文 | WeGame 版 22,210 个 `__data` 全为明文 `UnityFS` | 改为「先读 4 字节再判」，见 [SKILL.md](SKILL.md) 铁律 1 |
 | `store.cdb` 零间隙紧密排列 | 国际服五桶闭合，国服四桶有 71.8 MiB 空隙 | 已在 [docs/cn-pc/01-实测.md](docs/cn-pc/01-实测.md) §4 标注适用范围 |
+| 安装示例的可链接路径、`get_si.py` 的 `SI_DIR`/`CN_CACHE`/`NAU` 写死作者本机 `F:`/`E:` 盘 | 他人 clone 后必然失败：本机已无 F 盘，`SI_DIR` 落盘与 NAU 解密两条路直接不可用；`CN_CACHE` 有 `is_dir()` 守卫但不报「未设置」 | 2026-11-13 改为环境变量可覆盖：`NIKKE_SI_DIR` / `NIKKE_CN_CAT` / `NIKKE_CN_CACHE` / `NIKKE_NAU`，默认值退到仓内相对路径；未设 `NIKKE_CN_CACHE` 时给可复制的设置提示 |
+| 静态表与场景装配两处指向 `04_临时车间\脚本\*` | 该目录属内部工作区，公开仓里是死链 | 2026-11-13 改为只登记方法与入口、不写路径，并说明「脚本不在本仓库」 |
 
 遇到新的不一致，追加到这张表，不要只改正文。

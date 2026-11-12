@@ -54,9 +54,9 @@ python tools/nk.py cnget   --root "<cache 根>" "<32hex>" -o x.bundle
 
 ```bash
 # 方式一：软链（推荐，改仓库即时生效，不产生副本）
-# Windows 管理员 PowerShell
+# Windows PowerShell。Junction 不需要管理员权限（2026-11-13 实测）
 New-Item -ItemType Junction -Path "$env:USERPROFILE\.workbuddy\skills\nikke-unpack" `
-         -Target "F:\Codex\Nikke\01_母体\B_客户端资源\02_Skills\Nikke_Unpack_Guide"
+         -Target "<本仓库克隆到的绝对路径>"
 
 # 方式二：直接引用
 # 在任意项目里 `git clone` 本仓库，把路径告诉 Agent 即可
@@ -102,7 +102,7 @@ New-Item -ItemType Junction -Path "$env:USERPROFILE\.workbuddy\skills\nikke-unpa
 | 项 | 结论 |
 | :--- | :--- |
 | 低清 `(sd)` 缺块 | 国际服 `.idx` 100% 覆盖物理字节，缺的块物理不存在，只能靠游戏内按需下载补 |
-| 静态表（关卡/数值） | 客户端内没有该文件：走 lobby API 取 pack + salt1/salt2（随版本下发）→ 双层 AES → mpk。脚本见 `04_临时车间\脚本\tmp_fetch_staticdata_info.py` / `tmp_unpack_staticdata.py`；逐表残余与 SHA256 见 `静态包拉取_20261111_153\manifest.core.json` |
+| 静态表（关卡/数值） | 客户端内没有该文件：走 lobby API 取 pack + salt1/salt2（随版本下发）→ 双层 AES → mpk。**该链路脚本不在本仓库**：它属「解包之后」的离线加工层，与客户端取件解耦，故此处只登记方法与入口，不附路径 |
 | 格式变更 | 每个客户端版本先跑 `python tools/nk.py doctor ... --deep`：NKDB/CIDX/CBLB 的版本、长度、校验和任一不符会直接报错，不会静默产出垃圾 |
 | 动态头像框 | 国际服 PC 无该族；安卓有 |
 | 国服定位 | 清单与缓存路径无确定映射，必须建对象名索引反查 |
