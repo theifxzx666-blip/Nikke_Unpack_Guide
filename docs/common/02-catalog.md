@@ -148,7 +148,7 @@
 | 37 | BGM | `audiogroup*` / `bgm_*` | `BGM\` | ⭕ |
 | 38 | 台词配音 | `<语种>/ab/*.nab` | `台词与配音\语音_<语种>\` | ⭕ |
 | 39 | 多语台词文本 | 各 `Locale_*` 的多语言列 | `台词与配音\台词_全语言.tsv` | ⭕ |
-| 40 | 静态数据表 | `StaticData.pack`，约 179 张 JSON | `基线\...\_静态表\` | ✅ |
+| 40 | 静态数据表 | lobby API → `StaticData.pack` → 654 张 JSON（153 快照） | `基线\...\_静态表\` | ✅ |
 | 41 | 卡池与活动横幅 | `gachaui_assets_base_gacha_type_*` | `卡池与活动横幅\` | ⭕ |
 | 42 | 活动 UI | `eventui-<代号>_assets_*` | `其他UI资源\活动UI\` | ⭕ |
 | 43 | 抽卡与商店 | `gachaui` / `contentsshopsprite` | `其他UI资源\抽卡与商店\` | ⭕ |

@@ -40,14 +40,14 @@ python tools/nk.py export out.bundle -o out/
 | # | 项 | 结论 |
 | :-: | :--- | :--- |
 | 1 | `saus/raw` 磁盘名 | 16 B hash 的 hex（`1cc05a5b....lsc`），映射在 `files_rawtype.hash`，**不是明文命名** |
-| 2 | 静态表 | **路径不存在**。`core/raw/*.db` 是 Addressables 目录库（8 张表），不是 179 张业务表 |
-| 3 | 动态头像框 | `icons-dynamic` **全站零命中**，PC 无该族 |
+| 2 | 静态表 | 客户端内**无此文件**；`core/raw/*.db` 是 Addressables 目录库（8 张表）。业务表走 **lobby API**（`version` + `salt1/salt2` → pack → 双层 AES → mpk），已解 654 张，见 [01-实测.md](01-实测.md) §7 |
+| 3 | 动态头像框 | `icons-dynamic` **国际服全站零命中**（PC 与安卓同一套七桶键），无该族 |
 
 ## 已知边界
 
 - 低清 `(sd)` 缺块：`.idx` 100% 覆盖物理字节，缺的块物理上不在文件里，只能靠游戏内按需下载补。
 - 莱彻整具模型：`spotmonster(hd)` 只装骨骼占位与特效件，不是完整高模。
-- 43 类有产物 37 类；不可交付的 6 类原因逐条列在 [01-实测.md](01-实测.md) §8。
+- 43 类有 39 类可交付；不可交付的 4 类原因逐条列在 [01-实测.md](01-实测.md) §8。
 
 ## 场景装配
 

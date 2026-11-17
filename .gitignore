@@ -21,6 +21,13 @@ diff/
 *.mpk
 *.glb
 
+# 桌面工具（NikkePickup）构建产物：8 个 dist 各 29 MB，连同 build 缓存与预览图约 600 MB
+app/build/
+app/build_*/
+app/dist/
+app/dist_*/
+app/ui/_preview/
+
 # 系统与编辑器
 .DS_Store
 Thumbs.db

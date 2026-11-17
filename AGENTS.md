@@ -70,5 +70,8 @@ python -c "import UnityPy, zstandard, PIL, Crypto; print('ok')"   # 依赖自查
 | `store.cdb` 零间隙紧密排列 | 国际服五桶闭合，国服四桶有 71.8 MiB 空隙 | 已在 [docs/cn-pc/01-实测.md](docs/cn-pc/01-实测.md) §4 标注适用范围 |
 | 安装示例的可链接路径、`get_si.py` 的 `SI_DIR`/`CN_CACHE`/`NAU` 写死作者本机 `F:`/`E:` 盘 | 他人 clone 后必然失败：本机已无 F 盘，`SI_DIR` 落盘与 NAU 解密两条路直接不可用；`CN_CACHE` 有 `is_dir()` 守卫但不报「未设置」 | 2026-11-13 改为环境变量可覆盖：`NIKKE_SI_DIR` / `NIKKE_CN_CAT` / `NIKKE_CN_CACHE` / `NIKKE_NAU`，默认值退到仓内相对路径；未设 `NIKKE_CN_CACHE` 时给可复制的设置提示 |
 | 静态表与场景装配两处指向 `04_临时车间\脚本\*` | 该目录属内部工作区，公开仓里是死链 | 2026-11-13 改为只登记方法与入口、不写路径，并说明「脚本不在本仓库」 |
+| PC 端静态表「路径不存在、不可得」 | 客户端内确无文件，但 lobby API 给 `version` + `salt1/salt2`，pack 可拉可解；实测一份 153 快照解出 **654 张** | 已改 [docs/intl-pc/01-实测.md](docs/intl-pc/01-实测.md) §7、[容器-国际服.md](docs/common/容器-国际服.md) |
+| 静态表「约 179 张」 | 179 是早期只解出部分表的数字；同一份 pack 内无版本后缀的当前表 **1,124 张** | 已改 02-catalog / 容器 / 01-实测 / 00-场景矩阵 四处 |
+| 静态表清单 = pack 里的全部表 | 清单只代表「已导出」。实测 1,124 张当前表里 645 张从未导出；补 `<X>Record_Raw` 的 `table` 映射后 175 张直接 0 残余 | 覆盖率与口径已写入 [docs/intl-pc/01-实测.md](docs/intl-pc/01-实测.md) §7 |
 
 遇到新的不一致，追加到这张表，不要只改正文。

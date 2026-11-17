@@ -257,3 +257,4 @@ PYTHONUTF8=1
 | 联系表 | 每期手写脚本 |
 | 说明文档生成 | 手写 |
 | 统一入口 | 已落地 `tools/nk.py`（doctor / scan / locate / find / get / pull / batch / cnindex / cnget / export） |
+| 静态表（lobby API → pack → mpk → JSON） | 独立脚本链，不在 `nk.py` 内：`tmp_fetch_staticdata_info.py` → `tmp_unpack_staticdata.py` → `tmp_mpk2json.py` → `tmp_staticdata_manifest.py`。153 快照已解 654 张，0 残余 |
