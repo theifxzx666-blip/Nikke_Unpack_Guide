@@ -104,9 +104,9 @@ New-Item -ItemType Junction -Path "$env:USERPROFILE\.workbuddy\skills\nikke-unpa
 | 低清 `(sd)` 缺块 | 国际服 `.idx` 100% 覆盖物理字节，缺的块物理不存在，只能靠游戏内按需下载补 |
 | 静态表（关卡/数值） | 客户端内没有该文件：走 lobby API 取 pack + salt1/salt2（随版本下发）→ 双层 AES → mpk。**该链路脚本不在本仓库**：它属「解包之后」的离线加工层，与客户端取件解耦，故此处只登记方法与入口，不附路径 |
 | 格式变更 | 每个客户端版本先跑 `python tools/nk.py doctor ... --deep`：NKDB/CIDX/CBLB 的版本、长度、校验和任一不符会直接报错，不会静默产出垃圾 |
-| 动态头像框 | 国际服 PC 无该族；安卓有 |
+| 动态头像框 | 仅国服安卓：`icons-dynamic(hd)` 21 组 / 668 帧 / **256² 原生**；国际服 `core`/`dp` 检索 `icons-dynamic` 0 命中。流程见 [docs/cn-android/动态头像框-实测.md](docs/cn-android/动态头像框-实测.md) |
 | 国服定位 | 清单与缓存路径无确定映射，必须建对象名索引反查 |
-| 工具 | 子命令契约见 [docs/common/04-tooling.md](docs/common/04-tooling.md)，`tools/nk.py` 实现了 doctor/scan/locate/find/get/pull/batch/cnindex/cnget/export |
+| 工具 | 子命令契约见 [docs/common/04-tooling.md](docs/common/04-tooling.md)，`tools/nk.py` 实现了 doctor/scan/locate/find/get/pull/batch/cnindex/cnget/export；`tools/get_si.py` 是单件取 SI 立绘的便捷入口 |
 | 效率 | [docs/05-效率实测.md](docs/05-效率实测.md)：批量比逐件快 16 倍（100 件约 52 倍），附瓶颈分解与剩余优化项 |
 
 ## 免责
