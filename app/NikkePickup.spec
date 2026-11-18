@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('ui/index.html', 'ui')]
+datas = [('ui/index.html', 'ui'), ('ui/_alias.json', 'ui')]
 binaries = []
 hiddenimports = ['webview.platforms.edgechromium', 'webview.platforms.winforms', 'clr']
 tmp_ret = collect_all('pythonnet')

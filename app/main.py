@@ -6,6 +6,7 @@ pywebview + WebView2。UI 在 ui/index.html，Python 只做数据与执行。
 """
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -40,6 +41,57 @@ def detect_tools():
             break
         cur = parent
     return ""
+
+
+_ALIAS = None
+
+
+def alias_map():
+    """代号↔中文名：读 app/ui/_alias.json（由 00_索引\角色代号中文名对照表.xlsx 生成）"""
+    global _ALIAS
+    if _ALIAS is None:
+        _ALIAS = {"code2names": {}, "name2codes": {}}
+        try:
+            with open(os.path.join(app_dir(), "ui", "_alias.json"), encoding="utf-8") as f:
+                d = json.load(f)
+            _ALIAS = {"code2names": d.get("code2names", {}),
+                      "name2codes": d.get("name2codes", {})}
+        except Exception:
+            pass
+    return _ALIAS
+
+
+def scope_terms(keyword):
+    """范围关键字展开成 {text:[...], codes:{int}}：输入中文名补代号，输入代号补中文名"""
+    q = (keyword or "").strip()
+    if not q:
+        return None
+    a = alias_map()
+    if re.fullmatch(r"[cC]?\d{1,5}", q):          # 输入的是代号：只按数值精确匹配，不做文本前缀
+        n = str(int(re.sub(r"\D", "", q)))
+        text = [nm.lower() for nm in a["code2names"].get(n, [])]
+        codes = {int(n)}
+    else:                                          # 输入的是名字：文本匹配 + 该名字的全部代号
+        text = [q.lower()]
+        codes = {int(x) for x in a["name2codes"].get(q, []) + a["name2codes"].get(q.lower(), [])}
+    return {"text": text, "codes": codes}
+
+
+# 文件名里的角色代号：前后不能紧贴字母数字，避免撞上 hash 片段
+CODE_RE = re.compile(r"(?<![0-9a-z])[cC](\d{1,5})(?![0-9a-z])")
+
+
+def scope_hit(rel, terms):
+    """rel 是否命中范围。terms 为 None 表示不限范围"""
+    if not terms:
+        return True
+    low = rel.lower()
+    if any(t in low for t in terms["text"]):
+        return True
+    if terms["codes"]:
+        found = {int(x) for x in CODE_RE.findall(rel)}
+        return bool(found & terms["codes"])
+    return False
 
 
 def cfg_path():
@@ -236,10 +288,10 @@ class Api:
             return []
 
         exts = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".xlsx", ".csv")
-        q = (keyword or "").strip().lower()
+        terms = scope_terms(keyword)
 
         def hit(rel):
-            return not q or q in rel.lower()
+            return scope_hit(rel, terms)
 
         # 槽位直接指向单个成品文件
         if os.path.isfile(root):
@@ -322,17 +374,17 @@ class Api:
             return {"ok": False, "error": "没有可复制的文件"}
 
         # 先排计划：目录展开成文件清单，单文件槽位直接入列；keyword 只留范围内的
-        q = (keyword or "").strip().lower()
+        terms = scope_terms(keyword)
         plan = []
         for slot, src in jobs:
             if os.path.isfile(src):
-                if not q or q in os.path.basename(src).lower():
+                if scope_hit(os.path.basename(src), terms):
                     plan.append((slot, os.path.dirname(src), src))
                 continue
             for dp, _, fs in os.walk(src):
                 for f in fs:
                     fp = os.path.join(dp, f)
-                    if q and q not in os.path.relpath(fp, src).replace("\\", "/").lower():
+                    if not scope_hit(os.path.relpath(fp, src).replace("\\", "/"), terms):
                         continue
                     plan.append((slot, src, fp))
         total = len(plan)

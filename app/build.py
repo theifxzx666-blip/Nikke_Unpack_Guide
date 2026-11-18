@@ -20,6 +20,7 @@ cmd = [
     # 表现为进程活着却没有窗口。控制台窗口由 main.py 的 prepare_env() 隐藏。
     "--windowed" if "--windowed" in sys.argv else "--console",
     "--add-data", os.path.join("ui", "index.html") + ";ui",
+    "--add-data", os.path.join("ui", "_alias.json") + ";ui",
     "--hidden-import", "webview.platforms.edgechromium",
     "--hidden-import", "webview.platforms.winforms",
     "--hidden-import", "clr",
