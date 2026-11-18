@@ -28,6 +28,9 @@ app/dist/
 app/dist_*/
 app/ui/_preview/
 
+# 本机配置（每台机器不同，不入库）
+app/settings.json
+
 # 系统与编辑器
 .DS_Store
 Thumbs.db

@@ -95,6 +95,7 @@ New-Item -ItemType Junction -Path "$env:USERPROFILE\.workbuddy\skills\nikke-unpa
 | [docs/cn-pc/](docs/cn-pc/README.md) | 国服 PC：清单→缓存定位、明文缓存、NKAB 判据 |
 | [docs/cn-android/](docs/cn-android/README.md) | 国服安卓：UnityCache、明文 lss、与 PC 差异 |
 | [docs/common/](docs/common/01-overview.md) | 六阶段、43 类键规律、落盘命名、工具契约、容器字节结构、取件算法 |
+| [docs/08-取件库客户端规格.md](docs/08-取件库客户端规格.md) | 桌面客户端：选型、取件表数据模型、分期与实测坑；源码在 [`app/`](app/main.py) |
 | [SKILL.md](SKILL.md) / [AGENTS.md](AGENTS.md) | 技能入口 / 给 AI 的操作规范 |
 
 ## 已知限制

@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>取件库 · NIKKE</title>
+<style>
+  :root{
+    --bg:#0f1117; --panel:rgba(26,30,42,.52); --panel2:rgba(22,25,35,.62);
+    --line:rgba(255,255,255,.075); --tx:#e8ebf5; --tx2:#8c93a8; --tx3:#5b6275;
+    --acc:#6c8cff; --ok:#3fbf7f; --warn:#e0a03c; --pur:#a679ff; --blue:#4aa8ff; --gray:#5f6678;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg); color:var(--tx); overflow:hidden;
+    font:13.5px/1.55 "Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  /* 背景光斑，给毛玻璃提供可模糊的内容 */
+  .blobs{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+  .blob{position:absolute;border-radius:50%;filter:blur(90px);opacity:.85}
+  .b1{width:660px;height:660px;left:-140px;top:-180px;background:radial-gradient(circle,#2f4699,transparent 66%)}
+  .b2{width:760px;height:760px;right:-180px;top:4%;background:radial-gradient(circle,#6b2f86,transparent 66%)}
+  .b3{width:600px;height:600px;left:26%;bottom:-240px;background:radial-gradient(circle,#0f6157,transparent 66%)}
+  .b4{width:520px;height:520px;right:22%;bottom:-160px;background:radial-gradient(circle,#7a3a2a,transparent 68%);opacity:.55}
+
+  .app{position:relative;z-index:1;display:flex;flex-direction:column;height:100%}
+
+  /* 顶栏 */
+  header{
+    display:flex;align-items:center;gap:14px;padding:13px 20px;
+    background:var(--panel);backdrop-filter:blur(22px) saturate(160%);
+    -webkit-backdrop-filter:blur(22px) saturate(160%);
+    border-bottom:1px solid var(--line);
+  }
+  header h1{font-size:15px;font-weight:600;letter-spacing:.3px}
+  header h1 span{color:var(--tx3);font-weight:400;margin-left:8px;font-size:12px}
+  .grow{flex:1}
+  .chip{
+    padding:4px 11px;border-radius:20px;font-size:11.5px;
+    background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--tx2);
+  }
+  .chip.on{color:#bfe6cf;border-color:rgba(63,191,127,.4);background:rgba(63,191,127,.12)}
+  .chip.off{color:#f0b3b3;border-color:rgba(224,90,90,.4);background:rgba(224,90,90,.12)}
+
+  /* 主体 */
+  main{flex:1;display:flex;min-height:0;padding:14px;gap:14px}
+
+  /* 左侧场景 */
+  nav{
+    width:210px;flex-shrink:0;display:flex;flex-direction:column;gap:9px;
+    background:var(--panel);backdrop-filter:blur(22px) saturate(160%);
+    -webkit-backdrop-filter:blur(22px) saturate(160%);
+    border:1px solid var(--line);border-radius:14px;padding:12px;overflow-y:auto;
+  }
+  nav .lbl{font-size:11px;color:var(--tx3);letter-spacing:1px;padding:2px 2px 4px}
+  .sc{
+    display:flex;flex-direction:column;gap:2px;padding:11px 13px;border-radius:10px;
+    border:1px solid transparent;background:rgba(255,255,255,.028);cursor:pointer;
+    transition:.16s;text-align:left;min-height:56px;justify-content:center;flex:0 0 auto;
+  }
+  .sc:hover{background:rgba(255,255,255,.06)}
+  .sc.on{background:rgba(108,140,255,.14);border-color:rgba(108,140,255,.42)}
+  .sc b{font-size:13px;font-weight:600}
+  .sc i{font-size:11px;color:var(--tx3);font-style:normal}
+
+  /* 右侧内容 */
+  section{flex:1;display:flex;flex-direction:column;min-width:0;gap:12px}
+
+  .card{
+    background:var(--panel2);backdrop-filter:blur(26px) saturate(150%);
+    -webkit-backdrop-filter:blur(26px) saturate(150%);
+    border:1px solid var(--line);border-radius:14px;
+  }
+
+  .bar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line)}
+  .bar h2{font-size:12.5px;font-weight:600;color:var(--tx)}
+  .bar .meta{font-size:11.5px;color:var(--tx3)}
+  button{
+    font:inherit;font-size:12px;padding:5px 13px;border-radius:8px;cursor:pointer;
+    background:rgba(255,255,255,.06);color:var(--tx);border:1px solid var(--line);
+    transition:.14s;
+  }
+  button:hover{background:rgba(255,255,255,.11)}
+  button.pri{background:rgba(108,140,255,.9);border-color:transparent;color:#fff}
+  button.pri:hover{background:rgba(108,140,255,1)}
+  button:disabled{opacity:.4;cursor:not-allowed}
+
+  .tablewrap{flex:1;overflow:auto;min-height:0}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  thead th{
+    position:sticky;top:0;z-index:2;text-align:left;font-weight:600;font-size:11.5px;
+    color:var(--tx2);padding:9px 14px;background:#181c27;
+    border-bottom:1px solid var(--line);white-space:nowrap;
+  }
+  tbody td{padding:9px 14px;border-bottom:1px solid rgba(255,255,255,.045);vertical-align:middle}
+  tbody tr{cursor:pointer;transition:.12s}
+  tbody tr:hover{background:rgba(255,255,255,.035)}
+  tbody tr.on{background:rgba(108,140,255,.13)}
+  .num{text-align:right;font-variant-numeric:tabular-nums;color:var(--tx2)}
+
+  .tag{display:inline-block;padding:1.5px 8px;border-radius:6px;font-size:11px;font-weight:600}
+  .t-direct{background:rgba(63,191,127,.14);color:#5fd39a}
+  .t-render{background:rgba(166,121,255,.15);color:#b795ff}
+  .t-table{background:rgba(74,168,255,.14);color:#74bbff}
+  .t-unavailable{background:rgba(120,126,145,.16);color:#9299ad}
+  .st{font-size:11.5px}
+  .st.ok{color:#5fd39a}
+  .st.wait{color:#e0a03c}
+  .st.no{color:#8b93a8}
+
+  /* 预览 */
+  .prev{height:0;overflow:hidden;transition:height .22s ease}
+  .prev.open{height:290px}
+  .prev .inner{display:flex;height:290px;gap:12px;padding:12px}
+  .thumbs{
+    flex:1;display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));
+    gap:8px;overflow-y:auto;align-content:start;
+  }
+  .th{
+    aspect-ratio:1;border-radius:8px;overflow:hidden;background:rgba(255,255,255,.04);
+    border:1px solid var(--line);display:flex;align-items:center;justify-content:center;
+    font-size:10.5px;color:var(--tx3);padding:3px;text-align:center;word-break:break-all;
+  }
+  .th img{width:100%;height:100%;object-fit:contain}
+  .side{width:230px;flex-shrink:0;display:flex;flex-direction:column;gap:8px}
+  .kv{display:flex;justify-content:space-between;font-size:11.5px;padding:3px 0;border-bottom:1px dashed rgba(255,255,255,.06)}
+  .kv span:first-child{color:var(--tx3)}
+  /* 长文本项：标题在上，内容换行，避免挤成一条 */
+  .kv.wide{display:block}
+  .kv.wide span{display:block}
+  .kv.wide span:last-child{margin-top:3px;line-height:1.65;color:var(--tx2)}
+  /* 资源库未就绪时的提示条：换电脑后第一眼就能看到该做什么 */
+  .libbar{
+    display:flex;align-items:center;gap:12px;margin:0 22px 10px;padding:10px 14px;
+    border-radius:10px;border:1px solid rgba(240,180,90,.35);
+    background:rgba(240,180,90,.09);font-size:12px;color:#f0c98a;
+  }
+  .libbar.err{border-color:rgba(240,110,110,.4);background:rgba(240,110,110,.09);color:#f09a9a}
+  tbody td.ingame{color:var(--tx2);font-size:11.5px;line-height:1.5}
+  tbody td.rw{color:var(--tx3);font-size:11.5px;line-height:1.5}
+  .none-rw{color:rgba(120,200,160,.75)}
+
+  .empty{display:flex;align-items:center;justify-content:center;height:100%;color:var(--tx3);font-size:12.5px}
+  ::-webkit-scrollbar{width:9px;height:9px}
+  ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.11);border-radius:5px}
+  ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.18)}
+  ::-webkit-scrollbar-track{background:transparent}
+</style>
+</head>
+<body>
+<div class="blobs"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div><div class="blob b4"></div></div>
+
+<div class="app">
+  <header>
+    <h1>取件库<span>NIKKE 资源取件台</span></h1>
+    <div class="grow"></div>
+    <div class="chip" id="src">取件表：—</div>
+    <div class="chip" id="health">自检中…</div>
+  </header>
+
+  <div id="libbar" class="libbar" style="display:none">
+    <span id="libmsg">尚未指定资源库目录</span>
+    <div class="grow"></div>
+    <button class="pri" id="btn-lib">选择资源库文件夹</button>
+  </div>
+
+  <main>
+    <nav>
+      <div class="lbl">第 1 步 · 选场景</div>
+      <div id="scenes"></div>
+    </nav>
+
+    <section>
+      <div class="card" style="flex:1;display:flex;flex-direction:column;min-height:0">
+        <div class="bar">
+          <h2 id="t-title">取件表</h2>
+          <div class="meta" id="t-meta"></div>
+          <div class="grow"></div>
+          <button id="btn-folder" disabled>打开目录</button>
+          <button id="btn-scene" disabled>整场景取件</button>
+          <button class="pri" id="btn-pick" disabled>取件</button>
+        </div>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:15%">槽位</th>
+                <th>在游戏里是什么</th>
+                <th style="width:15%">二次处理</th>
+                <th style="width:7%" class="num">文件</th>
+                <th style="width:8%" class="num">体积</th>
+                <th style="width:8%">状态</th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+          <div class="empty" id="empty">左侧选择一个场景</div>
+        </div>
+      </div>
+
+      <div class="card prev" id="prev">
+        <div class="inner">
+          <div class="thumbs" id="thumbs"></div>
+          <div class="side">
+            <div id="kv"></div>
+            <div class="grow"></div>
+            <div style="font-size:11px;color:var(--tx3);line-height:1.6" id="hint">
+              点击表格行查看该槽位的实物
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+const MODE_CN = { direct:"直出", render:"需渲染", table:"需关联", unavailable:"不可得" };
+const MODE_CLS = { direct:"t-direct", render:"t-render", table:"t-table", unavailable:"t-unavailable" };
+
+let DATA = null, scene = null, rowSel = null;
+
+const $ = id => document.getElementById(id);
+
+/* 开发预览模式：浏览器直接打开时用 _slots.json 兜底，不进产品运行时 */
+function devSetup() {
+  if (window.pywebview && window.pywebview.api) return false;
+  window.pywebview = { api: {
+    doctor: async () => [
+      { name: "取件表", ok: true }, { name: "资源库", ok: true },
+      { name: "nk.py", ok: true }, { name: "UnityPy 解释器", ok: true }
+    ],
+    load_table: async () => {
+      const d = await (await fetch("./_slots.json")).json();
+      d.file = "_slots.json（开发预览）";
+      return { ok: true, data: d };
+    },
+    list_files: async (slot) => {
+      const d = await (await fetch("./_slots.json")).json();
+      const s = d.slots.find(x => (x.id || x.slot) === slot);
+      return (s && s._files) || [];
+    },
+    preview: async (slot, rel) => "./_preview/" + rel.split("/").pop().split("\\").pop(),
+    open_folder: async () => false,
+    pick_folder: async () => "",
+    status: async () => ({ lib: "(浏览器预览)", ok: true, source: "预览" }),
+    pick_lib: async () => ({ ok: false, error: "浏览器预览模式不支持切换资源库" }),
+    export_slot: async () => ({ ok: false, error: "浏览器预览模式不支持取件" }),
+    export_scene: async () => ({ ok: false, error: "浏览器预览模式不支持取件" }),
+  }};
+  return true;
+}
+
+function ready(fn) {
+  if (window.pywebview && window.pywebview.api) return fn();
+  let done = false;
+  const go = (dev) => { if (!done) { done = true; if (dev) devSetup(); fn(); } };
+  window.addEventListener("pywebviewready", () => go(false));
+  // WebView2 首启注入 api 可能慢于 1s，给足时间再用开发兜底
+  setTimeout(() => go(!(window.pywebview && window.pywebview.api)), 2500);
+}
+
+async function boot() {
+  try {
+    // 先确认资源库在哪：换电脑后这一步不通过，后面全是空的
+    if (pywebview.api.status) {
+      const s = await pywebview.api.status();
+      if (!s.ok) {
+        $("libbar").style.display = "flex";
+        $("libbar").classList.add("err");
+        $("libmsg").textContent = s.lib
+          ? `资源库目录无效：${s.lib}`
+          : "尚未找到资源库，请指定包含 00_索引 与 01_角色 的文件夹";
+        $("health").textContent = "未就绪";
+        return;
+      }
+      $("libmsg").textContent = "";
+    }
+
+    const h = await pywebview.api.doctor();
+    const allOk = h.every(x => x.ok);
+    const el = $("health");
+    el.textContent = allOk ? "自检通过" : "缺 " + h.filter(x => !x.ok).map(x => x.name).join("、");
+    el.classList.add(allOk ? "on" : "off");
+
+    const r = await pywebview.api.load_table();
+    if (!r.ok) { $("src").textContent = r.error; return; }
+    DATA = r.data;
+    $("src").textContent = "取件表：" + DATA.file;
+    renderScenes();
+  } catch (e) {
+    $("src").textContent = "初始化失败：" + e.message;
+  }
+}
+
+async function chooseLib() {
+  const b = $("btn-lib");
+  b.disabled = true;
+  b.textContent = "选择中…";
+  try {
+    const r = await pywebview.api.pick_lib();
+    if (r.ok) {
+      $("libbar").style.display = "none";
+      $("libbar").classList.remove("err");
+      $("health").classList.remove("off");
+      await boot();
+    } else {
+      $("libmsg").textContent = r.error || "选择失败";
+    }
+  } catch (e) {
+    $("libmsg").textContent = "选择失败：" + e.message;
+  } finally {
+    b.disabled = false;
+    b.textContent = "选择资源库文件夹";
+  }
+}
+
+function renderScenes() {
+  const order = ["主线","活动","新角色","头像框","跨场景"];
+  const cnt = {};
+  DATA.slots.forEach(s => cnt[s.scene] = (cnt[s.scene] || 0) + 1);
+  const box = $("scenes");
+  box.innerHTML = "";
+  order.filter(k => cnt[k]).forEach(k => {
+    const d = document.createElement("button");
+    d.className = "sc";
+    d.innerHTML = `<b>${k}</b><i>${cnt[k]} 个槽位</i>`;
+    d.onclick = () => selectScene(k, d);
+    box.appendChild(d);
+  });
+}
+
+function selectScene(k, el) {
+  scene = k;
+  document.querySelectorAll(".sc").forEach(x => x.classList.remove("on"));
+  el.classList.add("on");
+  rowSel = null;
+  $("prev").classList.remove("open");
+  $("btn-pick").disabled = true;
+  $("btn-folder").disabled = true;
+  $("btn-scene").disabled = false;
+  renderTable();
+}
+
+function renderTable() {
+  const rows = DATA.slots.filter(s => s.scene === scene);
+  const tb = $("rows");
+  tb.innerHTML = "";
+  $("empty").style.display = rows.length ? "none" : "flex";
+  $("t-meta").textContent = `${rows.length} 个槽位 · ${rows.reduce((a,b)=>a+b.count,0)} 个文件`;
+  rows.forEach(s => {
+    const tr = document.createElement("tr");
+    const stCls = s.status === "已入库" ? "ok" : (s.status === "待采集" ? "wait" : "no");
+    tr.innerHTML = `
+      <td>${s.slot}</td>
+      <td class="ingame">${s.ingame || "—"}</td>
+      <td class="rw">${s.rework ? s.rework : '<span class="none-rw">拿来就用</span>'}</td>
+      <td class="num">${s.count || "—"}</td>
+      <td class="num">${s.mb ? s.mb.toFixed(1) + " MB" : "—"}</td>
+      <td class="st ${stCls}">${s.status}</td>`;
+    tr.onclick = () => selectRow(s, tr);
+    tb.appendChild(tr);
+  });
+}
+
+async function selectRow(s, tr) {
+  document.querySelectorAll("tbody tr").forEach(x => x.classList.remove("on"));
+  tr.classList.add("on");
+  rowSel = s;
+  $("prev").classList.add("open");
+  $("btn-folder").disabled = !s.local;
+  $("btn-pick").disabled = s.mode === "unavailable";
+
+  $("kv").innerHTML = `
+    <div class="kv"><span>槽位</span><span>${s.slot}</span></div>
+    <div class="kv"><span>编号</span><span style="color:var(--tx3)">${s.id || "—"}</span></div>
+    <div class="kv wide"><span>用途</span><span>${s.ingame || "—"}</span></div>
+    <div class="kv wide"><span>二次处理</span><span>${s.rework || "拿来就用"}</span></div>
+    <div class="kv"><span>原料</span><span>${s.raw}</span></div>
+    <div class="kv"><span>成品</span><span>${s.deliver}</span></div>
+    <div class="kv"><span>来源</span><span>${s.source}</span></div>
+    <div class="kv"><span>数量</span><span>${s.count} 个 / ${s.mb} MB</span></div>`;
+
+  const files = await pywebview.api.list_files(s.id || s.slot, 60);
+  const box = $("thumbs");
+  box.innerHTML = "";
+  if (!files.length) {
+    $("hint").textContent = s.mode === "unavailable"
+      ? "客户端没有这项数据，需从官方公告获取"
+      : "该槽位暂无可预览文件";
+    return;
+  }
+  $("hint").textContent = `共 ${s.count} 个文件，预览前 ${files.length} 个`;
+  for (const f of files) {
+    const d = document.createElement("div");
+    d.className = "th";
+    d.title = f.rel;
+    if (/\.(png|jpe?g|webp|gif)$/i.test(f.name)) {
+      const url = await pywebview.api.preview(s.id || s.slot, f.rel);
+      if (url) {
+        const img = document.createElement("img");
+        img.src = url;
+        img.loading = "lazy";
+        img.onerror = () => { d.textContent = f.name; };
+        d.appendChild(img);
+      } else d.textContent = f.name;
+    } else d.textContent = f.name;
+    box.appendChild(d);
+  }
+}
+
+$("btn-folder").onclick = () => rowSel && pywebview.api.open_folder(rowSel.id || rowSel.slot);
+$("btn-lib").onclick = chooseLib;
+
+/* 取件：选目标目录 -> 复制 -> 进度 */
+window.__prog = (done, total, name) => {
+  const b = $("btn-pick");
+  const pct = total ? Math.round(done * 100 / total) : 0;
+  b.textContent = `取件中 ${pct}%`;
+  b.disabled = true;
+};
+
+$("btn-pick").onclick = async () => {
+  if (!rowSel) return;
+  const dest = await pywebview.api.pick_folder();
+  if (!dest) return;
+  await runExport(() => pywebview.api.export_slot(rowSel.id || rowSel.slot, dest));
+};
+
+/* 整场景取件：一次导出该场景下所有可提取槽位 */
+$("btn-scene").onclick = async () => {
+  if (!scene) return;
+  const dest = await pywebview.api.pick_folder();
+  if (!dest) return;
+  await runExport(() => pywebview.api.export_scene(scene, dest));
+};
+
+async function runExport(fn) {
+  const b = $("btn-pick"), bs = $("btn-scene");
+  b.disabled = true; bs.disabled = true;
+  b.textContent = "准备中…";
+  try {
+    const r = await fn();
+    if (r.ok) {
+      b.textContent = `已取 ${r.count} 个`;
+      $("hint").textContent = `已导出 ${r.count} 个文件（${r.mb} MB）到 ${r.dest}`;
+    } else {
+      b.textContent = "取件失败";
+      $("hint").textContent = r.error || "未知错误";
+    }
+  } catch (e) {
+    b.textContent = "取件异常";
+    $("hint").textContent = e.message;
+  }
+  setTimeout(() => {
+    b.textContent = "取件"; b.disabled = !rowSel;
+    bs.disabled = false;
+  }, 2400);
+}
+
+ready(boot);
+</script>
+</body>
+</html>

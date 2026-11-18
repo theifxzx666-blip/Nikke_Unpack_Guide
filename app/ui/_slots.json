@@ -1,0 +1,843 @@
+{
+ "generated": "20261105",
+ "lib": "",
+ "slots": [
+  {
+   "id": "main/cg",
+   "scene": "主线",
+   "slot": "主线/插画",
+   "ingame": "主线剧情演出里全屏出现的大图（CG）。通关那段剧情时玩家看到的就是它。",
+   "mode": "direct",
+   "rework": "",
+   "source": "intl · core · bg_main_*",
+   "raw": "PNG（已还原）",
+   "deliver": "PNG 原图",
+   "local": "02_剧情/插画HD/主线",
+   "count": 428,
+   "mb": 1923.35,
+   "status": "已入库",
+   "_files": [
+    {
+     "name": "eventscene_chap_49_01_1.png",
+     "rel": "eventscene_chap_49_01_1.png",
+     "size": 8278964
+    },
+    {
+     "name": "eventscene_chap_49_01_2.png",
+     "rel": "eventscene_chap_49_01_2.png",
+     "size": 7241885
+    },
+    {
+     "name": "eventscene_chap_49_02_1.png",
+     "rel": "eventscene_chap_49_02_1.png",
+     "size": 6378557
+    },
+    {
+     "name": "eventscene_chap_49_02_2.png",
+     "rel": "eventscene_chap_49_02_2.png",
+     "size": 4000752
+    },
+    {
+     "name": "eventscene_chap_49_02_3.png",
+     "rel": "eventscene_chap_49_02_3.png",
+     "size": 6434046
+    },
+    {
+     "name": "eventscene_chap_49_02_4.png",
+     "rel": "eventscene_chap_49_02_4.png",
+     "size": 4327087
+    },
+    {
+     "name": "eventscene_chap_49_02_5.png",
+     "rel": "eventscene_chap_49_02_5.png",
+     "size": 4705350
+    },
+    {
+     "name": "eventscene_chap_49_02_6.png",
+     "rel": "eventscene_chap_49_02_6.png",
+     "size": 4347077
+    }
+   ]
+  },
+  {
+   "id": "main/story",
+   "scene": "主线",
+   "slot": "主线/剧情文本",
+   "ingame": "主线剧情里的人物对白、旁白、选项。",
+   "mode": "direct",
+   "rework": "lss → 纯文本/XLSX（已处理）",
+   "source": "cn · saus · Locale_MainScenario",
+   "raw": "lss（SQLite）",
+   "deliver": "文本 / XLSX",
+   "local": "07_文本/剧情正文/主线",
+   "count": 655,
+   "mb": 1.75,
+   "status": "已入库",
+   "_files": []
+  },
+  {
+   "id": "main/reward_stage",
+   "scene": "主线",
+   "slot": "主线/通关收益",
+   "ingame": "打通过一关主线首通给的奖励（信用点、战斗数据辑、珠宝等）。",
+   "mode": "table",
+   "rework": "4 张表 join 后出 XLSX（已处理）",
+   "source": "CampaignStageTable → RewardTable",
+   "raw": "4 张表 join",
+   "deliver": "主线关卡收益_zh-CN.xlsx",
+   "local": "07_文本/收益/主线关卡收益_zh-CN.xlsx",
+   "count": 1,
+   "mb": 0.36,
+   "status": "已入库",
+   "_files": []
+  },
+  {
+   "id": "main/reward_quest",
+   "scene": "主线",
+   "slot": "主线/任务收益",
+   "ingame": "主线任务（通关 X-X 之类）完成后发的奖励。",
+   "mode": "table",
+   "rework": "MainQuestTable join RewardTable（已处理）",
+   "source": "MainQuestTable → RewardTable",
+   "raw": "4 张表 join",
+   "deliver": "主线关卡收益_zh-CN.xlsx",
+   "local": "07_文本/收益/主线关卡收益_zh-CN.xlsx",
+   "count": 1,
+   "mb": 0.36,
+   "status": "已入库",
+   "_files": []
+  },
+  {
+   "id": "main/bg",
+   "scene": "主线",
+   "slot": "主线/背景",
+   "ingame": "剧情里没有人物的纯背景图，也用于界面底图。",
+   "mode": "direct",
+   "rework": "",
+   "source": "intl · core · bg_*",
+   "raw": "PNG",
+   "deliver": "PNG 原图",
+   "local": "02_剧情/背景HD",
+   "count": 509,
+   "mb": 2060.68,
+   "status": "已入库",
+   "_files": [
+    {
+     "name": "2025foolsday.png",
+     "rel": "2025foolsday.png",
+     "size": 4684317
+    },
+    {
+     "name": "AAAWunder_2_intl.png",
+     "rel": "AAAWunder_2_intl.png",
+     "size": 1207742
+    },
+    {
+     "name": "AAAWunder_intl.png",
+     "rel": "AAAWunder_intl.png",
+     "size": 1198385
+    },
+    {
+     "name": "ArkCore_Off_intl.png",
+     "rel": "ArkCore_Off_intl.png",
+     "size": 5050477
+    },
+    {
+     "name": "ArkCore_On_intl.png",
+     "rel": "ArkCore_On_intl.png",
+     "size": 5064292
+    },
+    {
+     "name": "ArkMachineHangar_intl.png",
+     "rel": "ArkMachineHangar_intl.png",
+     "size": 5358125
+    },
+    {
+     "name": "ArkOff_intl.png",
+     "rel": "ArkOff_intl.png",
+     "size": 3414708
+    },
+    {
+     "name": "ArkrionHallEnter_intl.png",
+     "rel": "ArkrionHallEnter_intl.png",
+     "size": 5644278
+    }
+   ]
+  },
+  {
+   "id": "event/cg",
+   "scene": "活动",
+   "slot": "活动/插画",
+   "ingame": "活动剧情里的 CG，活动结束后通常从客户端下线。",
+   "mode": "direct",
+   "rework": "",
+   "source": "intl · dp · event_*",
+   "raw": "PNG（已还原）",
+   "deliver": "PNG 原图",
+   "local": "02_剧情/插画HD/活动",
+   "count": 778,
+   "mb": 3216.76,
+   "status": "已入库",
+   "_files": [
+    {
+     "name": "2X2 LOVE（twoxtwolove1_as_bad）_节01_eventscene_twoxtwolove1_as_bad_01.png",
+     "rel": "2X2 LOVE（twoxtwolove1_as_bad）_节01_eventscene_twoxtwolove1_as_bad_01.png",
+     "size": 4224466
+    },
+    {
+     "name": "2X2 LOVE（twoxtwolove1_as）_节01_eventscene_twoxtwolove1_as_01_1.png",
+     "rel": "2X2 LOVE（twoxtwolove1_as）_节01_eventscene_twoxtwolove1_as_01_1.png",
+     "size": 3130510
+    },
+    {
+     "name": "2X2 LOVE（twoxtwolove1_as）_节01_eventscene_twoxtwolove1_as_01_4.png",
+     "rel": "2X2 LOVE（twoxtwolove1_as）_节01_eventscene_twoxtwolove1_as_01_4.png",
+     "size": 3089275
+    },
+    {
+     "name": "2X2 LOVE（twoxtwolove1_as）_节02_eventscene_twoxtwolove1_as_02_1.png",
+     "rel": "2X2 LOVE（twoxtwolove1_as）_节02_eventscene_twoxtwolove1_as_02_1.png",
+     "size": 2635070
+    },
+    {
+     "name": "2X2 LOVE（twoxtwolove1_as）_节02_eventscene_twoxtwolove1_as_02_2.png",
+     "rel": "2X2 LOVE（twoxtwolove1_as）_节02_eventscene_twoxtwolove1_as_02_2.png",
+     "size": 2637341
+    },
+    {
+     "name": "2X2 LOVE（twoxtwolove1_as）_节02_eventscene_twoxtwolove1_as_02_3.png",
+     "rel": "2X2 LOVE（twoxtwolove1_as）_节02_eventscene_twoxtwolove1_as_02_3.png",
+     "size": 2645870
+    },
+    {
+     "name": "2X2 LOVE（twoxtwolove1_as）_节02_eventscene_twoxtwolove1_as_02_4.png",
+     "rel": "2X2 LOVE（twoxtwolove1_as）_节02_eventscene_twoxtwolove1_as_02_4.png",
+     "size": 2639691
+    },
+    {
+     "name": "2X2 LOVE（twoxtwolove1_as）_节03_eventscene_twoxtwolove1_as_03_1.png",
+     "rel": "2X2 LOVE（twoxtwolove1_as）_节03_eventscene_twoxtwolove1_as_03_1.png",
+     "size": 2598440
+    }
+   ]
+  },
+  {
+   "id": "event/collab_cg",
+   "scene": "活动",
+   "slot": "活动/联名插画",
+   "ingame": "联动活动的 CG（莉可丽丝、Persona 等），有版权，复用受限。",
+   "mode": "direct",
+   "rework": "",
+   "source": "intl · dp · collab_*",
+   "raw": "PNG",
+   "deliver": "PNG 原图",
+   "local": "02_剧情/插画HD/联动",
+   "count": 44,
+   "mb": 119.4,
+   "status": "已入库",
+   "_files": [
+    {
+     "name": "PERSONA ON FRONTLINE（ce009）_节01_eventscene_ce009_01_1.png",
+     "rel": "PERSONA ON FRONTLINE（ce009）_节01_eventscene_ce009_01_1.png",
+     "size": 7112952
+    },
+    {
+     "name": "PERSONA ON FRONTLINE（ce009）_节02_eventscene_ce009_02_1.png",
+     "rel": "PERSONA ON FRONTLINE（ce009）_节02_eventscene_ce009_02_1.png",
+     "size": 8688541
+    },
+    {
+     "name": "PERSONA ON FRONTLINE（ce009）_节02_eventscene_ce009_02_2.png",
+     "rel": "PERSONA ON FRONTLINE（ce009）_节02_eventscene_ce009_02_2.png",
+     "size": 7860900
+    },
+    {
+     "name": "PERSONA ON FRONTLINE（ce009）_节03_eventscene_ce009_03_1.png",
+     "rel": "PERSONA ON FRONTLINE（ce009）_节03_eventscene_ce009_03_1.png",
+     "size": 8574884
+    },
+    {
+     "name": "PERSONA ON FRONTLINE（ce009）_节04_eventscene_ce009_04_1.png",
+     "rel": "PERSONA ON FRONTLINE（ce009）_节04_eventscene_ce009_04_1.png",
+     "size": 6347092
+    },
+    {
+     "name": "PERSONA ON FRONTLINE（ce009）_节05_eventscene_ce009_05_1.png",
+     "rel": "PERSONA ON FRONTLINE（ce009）_节05_eventscene_ce009_05_1.png",
+     "size": 5720194
+    },
+    {
+     "name": "PERSONA ON FRONTLINE（ce009）_节06_eventscene_ce009_06_1.png",
+     "rel": "PERSONA ON FRONTLINE（ce009）_节06_eventscene_ce009_06_1.png",
+     "size": 7262820
+    },
+    {
+     "name": "PERSONA ON FRONTLINE（ce009）_节06_eventscene_ce009_06_2.png",
+     "rel": "PERSONA ON FRONTLINE（ce009）_节06_eventscene_ce009_06_2.png",
+     "size": 8584365
+    }
+   ]
+  },
+  {
+   "id": "event/story",
+   "scene": "活动",
+   "slot": "活动/剧情文本",
+   "ingame": "活动剧情对白与旁白，活动结束后文本仍在包里。",
+   "mode": "direct",
+   "rework": "lss → 纯文本/XLSX（已处理）",
+   "source": "cn · saus · Locale_Event",
+   "raw": "lss（SQLite）",
+   "deliver": "文本 / XLSX",
+   "local": "07_文本/剧情正文/其他",
+   "count": 190,
+   "mb": 0.17,
+   "status": "已入库",
+   "_files": []
+  },
+  {
+   "id": "event/reward",
+   "scene": "活动",
+   "slot": "活动/关卡与任务收益",
+   "ingame": "活动关卡首通、活动任务、活动商店兑换与签到的全部产出。",
+   "mode": "table",
+   "rework": "多表 join + 商店/签到换算（已处理）",
+   "source": "EventDungeon* + EventMission* + 商店 + 签到",
+   "raw": "多表 join",
+   "deliver": "XLSX 收益表",
+   "local": "07_文本/活动收益",
+   "count": 48,
+   "mb": 21.67,
+   "status": "已入库",
+   "_files": []
+  },
+  {
+   "id": "char/standing",
+   "scene": "新角色",
+   "slot": "角色/立绘",
+   "ingame": "角色详情页、编队、图鉴里的全身立绘。实际是 Spine 骨骼，会做呼吸/眨眼小动作。",
+   "mode": "render",
+   "rework": "Spine 渲染成透明 PNG（已处理）",
+   "source": "intl · dp · spinestandingcharactergroup",
+   "raw": "skel + atlas + png（原料在 06_骨骼/待机）",
+   "deliver": "透明 PNG 立绘 1800×2600",
+   "local": "01_角色/立绘成品",
+   "count": 531,
+   "mb": 981.65,
+   "status": "已入库",
+   "_files": [
+    {
+     "name": "2B_c810_00.png",
+     "rel": "2B_c810_00.png",
+     "size": 1268764
+    },
+    {
+     "name": "2B_c810_01.png",
+     "rel": "2B_c810_01.png",
+     "size": 1218291
+    },
+    {
+     "name": "2B_c810_02.png",
+     "rel": "2B_c810_02.png",
+     "size": 1953933
+    },
+    {
+     "name": "2B_c810_03.png",
+     "rel": "2B_c810_03.png",
+     "size": 1098373
+    },
+    {
+     "name": "A2_c811_00.png",
+     "rel": "A2_c811_00.png",
+     "size": 1380625
+    },
+    {
+     "name": "A2_c811_01.png",
+     "rel": "A2_c811_01.png",
+     "size": 1270231
+    },
+    {
+     "name": "A2_c811_02.png",
+     "rel": "A2_c811_02.png",
+     "size": 1581249
+    },
+    {
+     "name": "A2_c811_03.png",
+     "rel": "A2_c811_03.png",
+     "size": 1322911
+    }
+   ]
+  },
+  {
+   "id": "char/icon",
+   "scene": "新角色",
+   "slot": "角色/头像",
+   "ingame": "编队小图标、好友列表、聊天头像都用它。",
+   "mode": "direct",
+   "rework": "",
+   "source": "intl · dp · icon_char_*",
+   "raw": "PNG",
+   "deliver": "PNG 原图",
+   "local": "01_角色/头像",
+   "count": 568,
+   "mb": 104.63,
+   "status": "已入库",
+   "_files": [
+    {
+     "name": "2B_c810_00_mi_uc_tex.png",
+     "rel": "2B_c810_00_mi_uc_tex.png",
+     "size": 196427
+    },
+    {
+     "name": "2B_c810_01_mi_uc_tex.png",
+     "rel": "2B_c810_01_mi_uc_tex.png",
+     "size": 196427
+    },
+    {
+     "name": "2B_c810_02_mi_uc_tex.png",
+     "rel": "2B_c810_02_mi_uc_tex.png",
+     "size": 211019
+    },
+    {
+     "name": "2B_c810_03_mi_uc_tex.png",
+     "rel": "2B_c810_03_mi_uc_tex.png",
+     "size": 174627
+    },
+    {
+     "name": "A2_c811_00_mi_uc_tex.png",
+     "rel": "A2_c811_00_mi_uc_tex.png",
+     "size": 211286
+    },
+    {
+     "name": "A2_c811_01_mi_uc_tex.png",
+     "rel": "A2_c811_01_mi_uc_tex.png",
+     "size": 199092
+    },
+    {
+     "name": "A2_c811_02_mi_uc_tex.png",
+     "rel": "A2_c811_02_mi_uc_tex.png",
+     "size": 220382
+    },
+    {
+     "name": "A2_c811_03_mi_uc_tex.png",
+     "rel": "A2_c811_03_mi_uc_tex.png",
+     "size": 191726
+    }
+   ]
+  },
+  {
+   "id": "char/skill",
+   "scene": "新角色",
+   "slot": "角色/技能图标",
+   "ingame": "技能升级界面、战斗中的技能按钮图标。",
+   "mode": "direct",
+   "rework": "",
+   "source": "intl · dp · skillicon_*",
+   "raw": "PNG",
+   "deliver": "PNG 原图",
+   "local": "01_角色/技能图标",
+   "count": 504,
+   "mb": 2.15,
+   "status": "已入库",
+   "_files": [
+    {
+     "name": "IncElementDmg.png",
+     "rel": "IncElementDmg.png",
+     "size": 3932
+    },
+    {
+     "name": "Kraken_Big_Leg_Hit.png",
+     "rel": "Kraken_Big_Leg_Hit.png",
+     "size": 6583
+    },
+    {
+     "name": "Kraken_Big_Leg_Laser.png",
+     "rel": "Kraken_Big_Leg_Laser.png",
+     "size": 7340
+    },
+    {
+     "name": "Kraken_Big_Mouse.png",
+     "rel": "Kraken_Big_Mouse.png",
+     "size": 7986
+    },
+    {
+     "name": "Kraken_Big_Wave.png",
+     "rel": "Kraken_Big_Wave.png",
+     "size": 5096
+    },
+    {
+     "name": "Kraken_Head_Laser.png",
+     "rel": "Kraken_Head_Laser.png",
+     "size": 7707
+    },
+    {
+     "name": "Kraken_Head_Missile.png",
+     "rel": "Kraken_Head_Missile.png",
+     "size": 7621
+    },
+    {
+     "name": "Kraken_Laser.png",
+     "rel": "Kraken_Laser.png",
+     "size": 7016
+    }
+   ]
+  },
+  {
+   "id": "char/rawtex",
+   "scene": "新角色",
+   "slot": "角色/原始贴图",
+   "ingame": "立绘的图集贴图本体，游戏内不直接显示，是上面 Spine 的原料。",
+   "mode": "direct",
+   "rework": "需合成，否则看着像碎片",
+   "source": "intl · dp · *_uc_tex",
+   "raw": "2048² PNG（图集）",
+   "deliver": "原料，通常不用",
+   "local": "01_角色/立绘HD",
+   "count": 561,
+   "mb": 484.14,
+   "status": "已入库",
+   "_files": [
+    {
+     "name": "2B_c810_00_uc_tex.png",
+     "rel": "2B_c810_00_uc_tex.png",
+     "size": 1272323
+    },
+    {
+     "name": "2B_c810_01_uc_tex.png",
+     "rel": "2B_c810_01_uc_tex.png",
+     "size": 1164993
+    },
+    {
+     "name": "2B_c810_02_uc_tex.png",
+     "rel": "2B_c810_02_uc_tex.png",
+     "size": 1911126
+    },
+    {
+     "name": "2B_c810_03_uc_tex.png",
+     "rel": "2B_c810_03_uc_tex.png",
+     "size": 1057479
+    },
+    {
+     "name": "A2_c811_00_uc_tex.png",
+     "rel": "A2_c811_00_uc_tex.png",
+     "size": 1402362
+    },
+    {
+     "name": "A2_c811_01_uc_tex.png",
+     "rel": "A2_c811_01_uc_tex.png",
+     "size": 1264214
+    },
+    {
+     "name": "A2_c811_02_uc_tex.png",
+     "rel": "A2_c811_02_uc_tex.png",
+     "size": 1183672
+    },
+    {
+     "name": "A2_c811_03_uc_tex.png",
+     "rel": "A2_c811_03_uc_tex.png",
+     "size": 1203365
+    }
+   ]
+  },
+  {
+   "id": "frame/static_cn",
+   "scene": "头像框",
+   "slot": "头像框/静态-国服",
+   "ingame": "个人资料页玩家头像外面的装饰框，国服独有款式。",
+   "mode": "direct",
+   "rework": "",
+   "source": "cn · cache · frame_*",
+   "raw": "PNG",
+   "deliver": "PNG 原图",
+   "local": "03_头像框/静态头像框/国服HD合集",
+   "count": 294,
+   "mb": 18.17,
+   "status": "已入库",
+   "_files": [
+    {
+     "name": "champion_arena_main_bronze_tier1_frame_tex.png",
+     "rel": "champion_arena_main_bronze_tier1_frame_tex.png",
+     "size": 43419
+    },
+    {
+     "name": "champion_arena_main_bronze_tier2_frame_tex.png",
+     "rel": "champion_arena_main_bronze_tier2_frame_tex.png",
+     "size": 76196
+    },
+    {
+     "name": "champion_arena_main_gold_tier2_frame_tex.png",
+     "rel": "champion_arena_main_gold_tier2_frame_tex.png",
+     "size": 77422
+    },
+    {
+     "name": "champion_arena_main_gold_tier3_frame_tex.png",
+     "rel": "champion_arena_main_gold_tier3_frame_tex.png",
+     "size": 88560
+    },
+    {
+     "name": "champion_arena_main_platinum_tier3_frame_tex.png",
+     "rel": "champion_arena_main_platinum_tier3_frame_tex.png",
+     "size": 93871
+    },
+    {
+     "name": "champion_arena_main_silver_tier1_frame_tex.png",
+     "rel": "champion_arena_main_silver_tier1_frame_tex.png",
+     "size": 42176
+    },
+    {
+     "name": "champion_arena_main_silver_tier2_frame_tex.png",
+     "rel": "champion_arena_main_silver_tier2_frame_tex.png",
+     "size": 72265
+    },
+    {
+     "name": "champion_arena_main_silver_tier3_frame_tex.png",
+     "rel": "champion_arena_main_silver_tier3_frame_tex.png",
+     "size": 85121
+    }
+   ]
+  },
+  {
+   "id": "frame/static_intl",
+   "scene": "头像框",
+   "slot": "头像框/静态-国际服",
+   "ingame": "同上，国际服款式。跨服同名但不是同一张图，不能互相替代。",
+   "mode": "direct",
+   "rework": "",
+   "source": "intl · dp · frame_*",
+   "raw": "PNG",
+   "deliver": "PNG 原图",
+   "local": "03_头像框/静态头像框/国际服HD",
+   "count": 88,
+   "mb": 4.89,
+   "status": "已入库",
+   "_files": [
+    {
+     "name": "icn_1000days_event_frame_intl.png",
+     "rel": "icn_1000days_event_frame_intl.png",
+     "size": 65024
+    },
+    {
+     "name": "icn_ce005_event_frame_01_intl.png",
+     "rel": "icn_ce005_event_frame_01_intl.png",
+     "size": 37556
+    },
+    {
+     "name": "icn_ce005_event_frame_02_intl.png",
+     "rel": "icn_ce005_event_frame_02_intl.png",
+     "size": 46529
+    },
+    {
+     "name": "icn_ce005_event_frame_03_intl.png",
+     "rel": "icn_ce005_event_frame_03_intl.png",
+     "size": 34344
+    },
+    {
+     "name": "icn_ce007_event_frame_01_intl.png",
+     "rel": "icn_ce007_event_frame_01_intl.png",
+     "size": 37499
+    },
+    {
+     "name": "icn_ce007_event_frame_02_intl.png",
+     "rel": "icn_ce007_event_frame_02_intl.png",
+     "size": 49445
+    },
+    {
+     "name": "icn_fadingaffection_event_frame_intl.png",
+     "rel": "icn_fadingaffection_event_frame_intl.png",
+     "size": 98332
+    },
+    {
+     "name": "icn_goddessofvictory_event_frame_intl.png",
+     "rel": "icn_goddessofvictory_event_frame_intl.png",
+     "size": 69338
+    }
+   ]
+  },
+  {
+   "id": "frame/anim_seq",
+   "scene": "头像框",
+   "slot": "头像框/动态-帧序列",
+   "ingame": "动态头像框的逐帧贴图，游戏里靠序列帧循环播放。",
+   "mode": "render",
+   "rework": "帧序列合成 GIF/APNG（已处理）",
+   "source": "cn · cache · 序列帧",
+   "raw": "PNG 帧序列",
+   "deliver": "GIF / APNG",
+   "local": "03_头像框/动态头像框/帧序列",
+   "count": 668,
+   "mb": 59.32,
+   "status": "已入库",
+   "_files": [
+    {
+     "name": "dynamic_soloraid_Alteisen_ANMI_tier4_frame_00.png",
+     "rel": "dynamic_soloraid_Alteisen_ANMI_tier4_frame_00.png",
+     "size": 129651
+    },
+    {
+     "name": "dynamic_soloraid_Alteisen_ANMI_tier4_frame_01.png",
+     "rel": "dynamic_soloraid_Alteisen_ANMI_tier4_frame_01.png",
+     "size": 129787
+    },
+    {
+     "name": "dynamic_soloraid_Alteisen_ANMI_tier4_frame_02.png",
+     "rel": "dynamic_soloraid_Alteisen_ANMI_tier4_frame_02.png",
+     "size": 128939
+    },
+    {
+     "name": "dynamic_soloraid_Alteisen_ANMI_tier4_frame_03.png",
+     "rel": "dynamic_soloraid_Alteisen_ANMI_tier4_frame_03.png",
+     "size": 127041
+    },
+    {
+     "name": "dynamic_soloraid_Alteisen_ANMI_tier4_frame_04.png",
+     "rel": "dynamic_soloraid_Alteisen_ANMI_tier4_frame_04.png",
+     "size": 128202
+    },
+    {
+     "name": "dynamic_soloraid_Alteisen_ANMI_tier4_frame_05.png",
+     "rel": "dynamic_soloraid_Alteisen_ANMI_tier4_frame_05.png",
+     "size": 128470
+    },
+    {
+     "name": "dynamic_soloraid_Alteisen_ANMI_tier4_frame_06.png",
+     "rel": "dynamic_soloraid_Alteisen_ANMI_tier4_frame_06.png",
+     "size": 128478
+    },
+    {
+     "name": "dynamic_soloraid_Alteisen_ANMI_tier4_frame_07.png",
+     "rel": "dynamic_soloraid_Alteisen_ANMI_tier4_frame_07.png",
+     "size": 128407
+    }
+   ]
+  },
+  {
+   "id": "frame/anim_gif",
+   "scene": "头像框",
+   "slot": "头像框/动态-成图",
+   "ingame": "动态头像框的成品动图，可直接预览。",
+   "mode": "direct",
+   "rework": "",
+   "source": "合成产物",
+   "raw": "GIF",
+   "deliver": "GIF",
+   "local": "03_头像框/动态头像框/动图",
+   "count": 42,
+   "mb": 73.78,
+   "status": "已入库",
+   "_files": [
+    {
+     "name": "Alteisen_ANMI_tier4.gif",
+     "rel": "Alteisen_ANMI_tier4.gif",
+     "size": 722416
+    },
+    {
+     "name": "Alteisen_ANMI_tier4.png",
+     "rel": "Alteisen_ANMI_tier4.png",
+     "size": 4213724
+    },
+    {
+     "name": "Alteisen_PSID_tier4.gif",
+     "rel": "Alteisen_PSID_tier4.gif",
+     "size": 555036
+    },
+    {
+     "name": "Alteisen_PSID_tier4.png",
+     "rel": "Alteisen_PSID_tier4.png",
+     "size": 2504771
+    },
+    {
+     "name": "BlackSmith_ANMI_tier4.gif",
+     "rel": "BlackSmith_ANMI_tier4.gif",
+     "size": 690586
+    },
+    {
+     "name": "BlackSmith_ANMI_tier4.png",
+     "rel": "BlackSmith_ANMI_tier4.png",
+     "size": 2840806
+    },
+    {
+     "name": "BlackSmith_HSTA_tier4.gif",
+     "rel": "BlackSmith_HSTA_tier4.gif",
+     "size": 707192
+    },
+    {
+     "name": "BlackSmith_HSTA_tier4.png",
+     "rel": "BlackSmith_HSTA_tier4.png",
+     "size": 2569684
+    }
+   ]
+  },
+  {
+   "id": "frame/boss_cn",
+   "scene": "头像框",
+   "slot": "头像框/个突-国服专属",
+   "ingame": "个人突袭（个突）排名奖励的动态头像框，国服专属，只能走 ADB 从安卓包取。",
+   "mode": "render",
+   "rework": "Sprite 元数据 + 贴图合成（部分已处理）",
+   "source": "cn · adb · Sprite + Texture2D",
+   "raw": "Sprite 元数据 + 贴图",
+   "deliver": "合成 PNG / GIF",
+   "local": "03_头像框/国际服_个突头像框",
+   "count": 492,
+   "mb": 33.84,
+   "status": "已入库",
+   "_files": [
+    {
+     "name": "champion_arena_main_bronze_tier1_frame.png",
+     "rel": "champion_arena_main_bronze_tier1_frame.png",
+     "size": 54288
+    },
+    {
+     "name": "champion_arena_main_bronze_tier2_frame.png",
+     "rel": "champion_arena_main_bronze_tier2_frame.png",
+     "size": 92114
+    },
+    {
+     "name": "champion_arena_main_gold_tier2_frame.png",
+     "rel": "champion_arena_main_gold_tier2_frame.png",
+     "size": 94876
+    },
+    {
+     "name": "champion_arena_main_gold_tier3_frame.png",
+     "rel": "champion_arena_main_gold_tier3_frame.png",
+     "size": 104328
+    },
+    {
+     "name": "champion_arena_main_platinum_tier3_frame.png",
+     "rel": "champion_arena_main_platinum_tier3_frame.png",
+     "size": 111535
+    },
+    {
+     "name": "champion_arena_main_silver_tier1_frame.png",
+     "rel": "champion_arena_main_silver_tier1_frame.png",
+     "size": 54659
+    },
+    {
+     "name": "champion_arena_main_silver_tier2_frame.png",
+     "rel": "champion_arena_main_silver_tier2_frame.png",
+     "size": 93098
+    },
+    {
+     "name": "champion_arena_main_silver_tier3_frame.png",
+     "rel": "champion_arena_main_silver_tier3_frame.png",
+     "size": 107369
+    }
+   ]
+  },
+  {
+   "id": "meta/schedule",
+   "scene": "跨场景",
+   "slot": "活动起止时间",
+   "ingame": "活动什么时候开、什么时候关——决定这次版更应该取哪些资源。",
+   "mode": "unavailable",
+   "rework": "必须外部获取",
+   "source": "客户端无（ScheduleValue 全为 0）",
+   "raw": "—",
+   "deliver": "需查官方公告",
+   "local": "",
+   "count": 0,
+   "mb": 0.0,
+   "status": "不可得",
+   "_files": []
+  }
+ ]
+}
