@@ -54,6 +54,15 @@
     border:1px solid var(--line);border-radius:14px;padding:12px;overflow-y:auto;
   }
   nav .lbl{font-size:11px;color:var(--tx3);letter-spacing:1px;padding:2px 2px 4px}
+  /* 第 2 步：范围筛选 */
+  nav input[type=search]{
+    width:100%;box-sizing:border-box;padding:8px 10px;border-radius:9px;
+    border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--tx);
+    font-size:12px;outline:none;
+  }
+  nav input[type=search]::placeholder{color:var(--tx3)}
+  nav input[type=search]:focus{border-color:rgba(108,140,255,.5);background:rgba(108,140,255,.08)}
+  #scopehint{font-size:10.5px;color:var(--tx3);line-height:1.6;padding:0 2px}
   .sc{
     display:flex;flex-direction:column;gap:2px;padding:11px 13px;border-radius:10px;
     border:1px solid transparent;background:rgba(255,255,255,.028);cursor:pointer;
@@ -169,6 +178,9 @@
     <nav>
       <div class="lbl">第 1 步 · 选场景</div>
       <div id="scenes"></div>
+      <div class="lbl" style="margin-top:8px">第 2 步 · 选范围</div>
+      <input id="scope" type="search" placeholder="角色名 / 代号 / 版本关键字">
+      <div id="scopehint">留空＝该场景全部槽位</div>
     </nav>
 
     <section>
@@ -219,7 +231,7 @@
 const MODE_CN = { direct:"直出", render:"需渲染", table:"需关联", unavailable:"不可得" };
 const MODE_CLS = { direct:"t-direct", render:"t-render", table:"t-table", unavailable:"t-unavailable" };
 
-let DATA = null, scene = null, rowSel = null;
+let DATA = null, scene = null, rowSel = null, scope = "";
 
 const $ = id => document.getElementById(id);
 
@@ -236,10 +248,13 @@ function devSetup() {
       d.file = "_slots.json（开发预览）";
       return { ok: true, data: d };
     },
-    list_files: async (slot) => {
+    list_files: async (slot, limit = 400, kw = "") => {
       const d = await (await fetch("./_slots.json")).json();
       const s = d.slots.find(x => (x.id || x.slot) === slot);
-      return (s && s._files) || [];
+      const all = (s && s._files) || [];
+      const q = (kw || "").toLowerCase();
+      const hit = q ? all.filter(f => (f.rel || f.name || "").toLowerCase().includes(q)) : all;
+      return hit.slice(0, limit);
     },
     preview: async (slot, rel) => "./_preview/" + rel.split("/").pop().split("\\").pop(),
     open_folder: async () => false,
@@ -271,7 +286,7 @@ async function boot() {
         $("libbar").classList.add("err");
         $("libmsg").textContent = s.lib
           ? `资源库目录无效：${s.lib}`
-          : "尚未找到资源库，请指定包含 00_索引 与 01_角色 的文件夹";
+          : "尚未找到资源库，请指定包含 00_索引 与 10_用户层 的文件夹";
         $("health").textContent = "未就绪";
         return;
       }
@@ -344,11 +359,18 @@ function selectScene(k, el) {
 }
 
 function renderTable() {
-  const rows = DATA.slots.filter(s => s.scene === scene);
+  const q = scope.toLowerCase();
+  const all = DATA.slots.filter(s => s.scene === scene);
+  const rows = all.filter(s => !q || [s.slot, s.id, s.ingame, s.source, s.rework]
+    .some(v => String(v || "").toLowerCase().includes(q)));
   const tb = $("rows");
   tb.innerHTML = "";
   $("empty").style.display = rows.length ? "none" : "flex";
-  $("t-meta").textContent = `${rows.length} 个槽位 · ${rows.reduce((a,b)=>a+b.count,0)} 个文件`;
+  $("empty").textContent = rows.length ? "" : (q ? `没有匹配「${scope}」的槽位` : "左侧选择一个场景");
+  const n = rows.reduce((a,b)=>a+b.count,0);
+  $("t-meta").textContent = q
+    ? `筛出 ${rows.length}/${all.length} 个槽位 · ${n} 个文件`
+    : `${rows.length} 个槽位 · ${n} 个文件`;
   rows.forEach(s => {
     const tr = document.createElement("tr");
     const stCls = s.status === "已入库" ? "ok" : (s.status === "待采集" ? "wait" : "no");
@@ -382,7 +404,7 @@ async function selectRow(s, tr) {
     <div class="kv"><span>来源</span><span>${s.source}</span></div>
     <div class="kv"><span>数量</span><span>${s.count} 个 / ${s.mb} MB</span></div>`;
 
-  const files = await pywebview.api.list_files(s.id || s.slot, 60);
+  const files = await pywebview.api.list_files(s.id || s.slot, 400, scope);
   const box = $("thumbs");
   box.innerHTML = "";
   if (!files.length) {
@@ -391,7 +413,9 @@ async function selectRow(s, tr) {
       : "该槽位暂无可预览文件";
     return;
   }
-  $("hint").textContent = `共 ${s.count} 个文件，预览前 ${files.length} 个`;
+  $("hint").textContent = scope
+    ? `范围「${scope}」命中 ${files.length} 个（槽位共 ${s.count} 个）`
+    : `共 ${s.count} 个文件，预览前 ${files.length} 个`;
   for (const f of files) {
     const d = document.createElement("div");
     d.className = "th";
@@ -413,6 +437,21 @@ async function selectRow(s, tr) {
 $("btn-folder").onclick = () => rowSel && pywebview.api.open_folder(rowSel.id || rowSel.slot);
 $("btn-lib").onclick = chooseLib;
 
+/* 第 2 步：范围筛选。改一次重算表格；已选中的行会失效，相关按钮回到禁用 */
+let scopeTimer = null;
+$("scope").oninput = () => {
+  clearTimeout(scopeTimer);
+  scopeTimer = setTimeout(() => {
+    scope = $("scope").value.trim();
+    $("scopehint").textContent = scope ? `按「${scope}」过滤槽位与文件` : "留空＝该场景全部槽位";
+    rowSel = null;
+    $("prev").classList.remove("open");
+    $("btn-pick").disabled = true;
+    $("btn-folder").disabled = true;
+    if (DATA && scene) renderTable();
+  }, 180);
+};
+
 /* 取件：选目标目录 -> 复制 -> 进度 */
 window.__prog = (done, total, name) => {
   const b = $("btn-pick");
@@ -425,7 +464,7 @@ $("btn-pick").onclick = async () => {
   if (!rowSel) return;
   const dest = await pywebview.api.pick_folder();
   if (!dest) return;
-  await runExport(() => pywebview.api.export_slot(rowSel.id || rowSel.slot, dest));
+  await runExport(() => pywebview.api.export_slot(rowSel.id || rowSel.slot, dest, scope));
 };
 
 /* 整场景取件：一次导出该场景下所有可提取槽位 */
@@ -433,7 +472,7 @@ $("btn-scene").onclick = async () => {
   if (!scene) return;
   const dest = await pywebview.api.pick_folder();
   if (!dest) return;
-  await runExport(() => pywebview.api.export_scene(scene, dest));
+  await runExport(() => pywebview.api.export_scene(scene, dest, scope));
 };
 
 async function runExport(fn) {

@@ -187,7 +187,7 @@ class Api:
             return {"ok": False, "error": "未选择目录"}
         p = p.replace("\\", "/").rstrip("/")
         if not valid_lib(p):
-            return {"ok": False, "error": "这个目录不像资源库（缺少 00_索引 或 01_角色）"}
+            return {"ok": False, "error": "这个目录不像资源库（缺少 00_索引，或没有 10_用户层 / 20_开发层）"}
         LIB = p
         self._lib_source = "手动指定"
         self._cache = None
@@ -226,8 +226,8 @@ class Api:
         """槽位对应的磁盘路径：可能是目录，也可能是单个文件"""
         return os.path.join(LIB, row["local"]) if row.get("local") else ""
 
-    def list_files(self, slot, limit=400):
-        """列出某个槽位下的文件（相对路径）"""
+    def list_files(self, slot, limit=400, keyword=""):
+        """列出某个槽位下的文件（相对路径）。keyword 按相对路径过滤，先筛后截断"""
         row = self._row(slot)
         if not row:
             return []
@@ -236,25 +236,30 @@ class Api:
             return []
 
         exts = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".xlsx", ".csv")
+        q = (keyword or "").strip().lower()
+
+        def hit(rel):
+            return not q or q in rel.lower()
+
         # 槽位直接指向单个成品文件
         if os.path.isfile(root):
-            if not root.lower().endswith(exts):
+            name = os.path.basename(root)
+            if not root.lower().endswith(exts) or not hit(name):
                 return []
-            return [{"name": os.path.basename(root), "rel": os.path.basename(root),
-                     "size": os.path.getsize(root)}]
+            return [{"name": name, "rel": name, "size": os.path.getsize(root)}]
 
         out = []
         for dp, _, fs in os.walk(root):
             for f in fs:
-                if f.lower().endswith(exts):
-                    full = os.path.join(dp, f)
-                    out.append({
-                        "name": f,
-                        "rel": os.path.relpath(full, root).replace("\\", "/"),
-                        "size": os.path.getsize(full),
-                    })
-                    if len(out) >= limit:
-                        return out
+                if not f.lower().endswith(exts):
+                    continue
+                full = os.path.join(dp, f)
+                rel = os.path.relpath(full, root).replace("\\", "/")
+                if not hit(rel):
+                    continue
+                out.append({"name": f, "rel": rel, "size": os.path.getsize(full)})
+                if len(out) >= limit:
+                    return out
         return out
 
     def preview(self, slot, rel):
@@ -286,12 +291,12 @@ class Api:
         except Exception:
             return ""
 
-    def export_slot(self, slot, dest):
-        """把槽位下的文件复制到目标目录，按槽位名建子目录。
+    def export_slot(self, slot, dest, keyword=""):
+        """把槽位下的文件复制到目标目录，按槽位名建子目录；keyword 只导范围内的。
         返回 {ok, count, bytes, dest} 或 {ok:False, error}"""
-        return self.export_many([slot], dest)
+        return self.export_many([slot], dest, keyword)
 
-    def export_scene(self, scene, dest):
+    def export_scene(self, scene, dest, keyword=""):
         """按场景批量取件：一个场景下的所有可提取槽位"""
         if not self._cache:
             return {"ok": False, "error": "取件表未加载"}
@@ -299,9 +304,9 @@ class Api:
                 if s["scene"] == scene and s["mode"] != "unavailable"]
         if not keys:
             return {"ok": False, "error": "该场景没有可提取槽位"}
-        return self.export_many(keys, dest)
+        return self.export_many(keys, dest, keyword)
 
-    def export_many(self, slots, dest):
+    def export_many(self, slots, dest, keyword=""):
         if not self._cache:
             return {"ok": False, "error": "取件表未加载"}
         jobs = []
@@ -316,15 +321,20 @@ class Api:
         if not jobs:
             return {"ok": False, "error": "没有可复制的文件"}
 
-        # 先排计划：目录展开成文件清单，单文件槽位直接入列
+        # 先排计划：目录展开成文件清单，单文件槽位直接入列；keyword 只留范围内的
+        q = (keyword or "").strip().lower()
         plan = []
         for slot, src in jobs:
             if os.path.isfile(src):
-                plan.append((slot, os.path.dirname(src), src))
+                if not q or q in os.path.basename(src).lower():
+                    plan.append((slot, os.path.dirname(src), src))
                 continue
             for dp, _, fs in os.walk(src):
                 for f in fs:
-                    plan.append((slot, src, os.path.join(dp, f)))
+                    fp = os.path.join(dp, f)
+                    if q and q not in os.path.relpath(fp, src).replace("\\", "/").lower():
+                        continue
+                    plan.append((slot, src, fp))
         total = len(plan)
         if not total:
             return {"ok": False, "error": "槽位为空"}
