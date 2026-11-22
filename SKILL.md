@@ -205,6 +205,7 @@ PC 取不到 `versionName`/`versionCode`，用文件指纹：各桶 `catalog.ndb
 | 取件算法 | [docs/common/取件-国际服.md](docs/common/取件-国际服.md) |
 | 43 类资源键规律 | [docs/common/02-catalog.md](docs/common/02-catalog.md) |
 | 按资源类型找最短路径 | [docs/09-资源类型最佳实践.md](docs/09-资源类型最佳实践.md) |
+| 第三方来源与许可 | [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) |
 | 落盘命名 | [docs/common/03-output.md](docs/common/03-output.md) |
 
 ## 边界

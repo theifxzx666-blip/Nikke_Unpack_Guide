@@ -13,6 +13,8 @@
 | 清单查询 | sqlite3（Python 标准库） | 3.53.1 | 是 |
 | 静态表反序列化 | Python + `schema_intl_merged.json`（884 类） | 实证 654 表 0 残余 | 否，仅取静态表时需要 |
 
+组件许可与来源见 [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md)：UnityPy 为 MIT（K0lb3），zstandard 为 BSD-3-Clause，Pillow 为 HPND，pycryptodome 为 BSD / Public Domain；adb 属 Android SDK Platform-Tools。
+
 两点容易走弯路：
 
 不需要 `zstd` 命令行。Python 的 `zstandard` 包覆盖全部解压需求。

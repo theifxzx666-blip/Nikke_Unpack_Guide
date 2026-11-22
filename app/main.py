@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 """取件库客户端 · 主程序
 
-pywebview + WebView2。UI 在 ui/index.html，Python 只做数据与执行。
+pywebview + WebView2（pywebview 为 BSD-3-Clause，https://github.com/r0x0r/pywebview）。
+UI 在 ui/index.html，Python 只做数据与执行。
 所有耗时操作（拆包、渲染）走子进程，主进程不 import UnityPy。
+第三方来源与许可见仓库根 THIRD_PARTY_NOTICES.md。
 """
 import json
 import os

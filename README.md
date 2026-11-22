@@ -30,7 +30,7 @@
 
 | 序号 | 项目 | 七桶形态 | 缓存形态 |
 | :-: | :--- | :--- | :--- |
-| 1 | 清单 | 自研 NKDB（AES-128-OFB，密钥位于偏移 8） | Unity Addressables 明文 JSON |
+| 1 | 清单 | 游戏自有 NKDB 格式（AES-128-OFB，密钥位于偏移 8） | Unity Addressables 明文 JSON |
 | 2 | 数据体 | `store.cdb` + CIDX 索引，块级 zstd 压缩 | Unity Cache 目录树，整包存储 |
 | 3 | 文本表 | `.lsc`，NKDB 加密 | `.lss`，明文 SQLite |
 | 4 | 取件 | 块级读取，需 dd 拼装并校验连续性 | 整文件读取，难点在于定位 |
@@ -149,7 +149,20 @@ Junction 无需管理员权限（2026-11-13 实测）。
 | 工具 | 子命令契约见 [`docs/common/04-tooling.md`](docs/common/04-tooling.md)。`tools/nk.py` 已实现 `doctor` / `scan` / `locate` / `find` / `get` / `pull` / `batch` / `cnindex` / `cnget` / `export`；`tools/get_si.py` 为单件提取 SI 立绘的便捷入口 |
 | 效率 | 批量较逐件快 16 倍（100 件约 52 倍），瓶颈分解与剩余优化项见 [`docs/05-效率实测.md`](docs/05-效率实测.md) |
 
-## 7. 免责声明
+## 7. 来源与致谢
+
+本仓库的解析与取件实现依赖社区组件。完整清单（版本、许可、用途、链接）见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)。
+
+| 类别 | 主要来源 |
+| :--- | :--- |
+| 运行时依赖 | UnityPy（MIT，K0lb3）、zstandard、Pillow、pycryptodome |
+| 外部工具 | NAU / NikkeAssetUnpacker（作者 bingle，不随仓库分发）、Spine Runtimes（Esoteric Software） |
+| 格式与资料 | MemoryPack（Cysharp，MIT）、Unity Addressables、NIKKE modding 社区公开资料 |
+| 交互参考 | ArcanaHelper（仅参考分步交互流程，未使用其代码） |
+
+仓库内不含游戏资源，也不分发上述第三方工具。`NKDB`、`store.cdb` 等格式为游戏自有，本仓库仅实现读取。
+
+## 8. 免责声明
 
 本方案仅用于个人研究、资料存档与资讯整理，不提供游戏本体，不提供可运行的修改版客户端，不用于商业用途。
 

@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
-"""打包取件库客户端（onedir，避免 onefile 解压到 C 盘 tmpdir）"""
+"""打包取件库客户端（onedir，避免 onefile 解压到 C 盘 tmpdir）
+
+打包器为 PyInstaller（GPL-2.0-or-later，含打包例外），许可与来源见 THIRD_PARTY_NOTICES.md。
+"""
 import os
 import shutil
 import subprocess

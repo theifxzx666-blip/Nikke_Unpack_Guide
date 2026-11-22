@@ -13,7 +13,8 @@
   3. 取包 → UnityPy 按 Sprite 名裁剪导出 → 改名为 `si_<code>_s_intl.png` 落盘；
   4. 已存在同名文件时默认跳过（--force 覆盖）。
 
-依赖：zstandard + UnityPy + Pillow（与 nk.py 相同）。国服没有 SI 小包，不在本脚本范围。
+依赖：zstandard + UnityPy + Pillow（与 nk.py 相同），均见 THIRD_PARTY_NOTICES.md。
+国服走单角色小包 + NKAB 解密，解密由外部 NAU 完成（作者 bingle，不随本仓库分发）。
 """
 import argparse
 import json

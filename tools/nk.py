@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 """NIKKE 拆包统一入口 —— 四场景：国际服/国服 × PC/安卓。
 
-只用标准库 + zstandard + UnityPy + Pillow。国服的 NKAB 解密交给外部 NAU.exe。
+依赖：UnityPy（MIT，https://github.com/K0lb3/UnityPy）、zstandard、Pillow、pycryptodome。
+国服 NKAB 解密交给外部 NAU（NikkeAssetUnpacker，作者 bingle，不随本仓库分发）。
+第三方来源与许可见仓库根 THIRD_PARTY_NOTICES.md。
 
     python nk.py doctor  --scene intl-pc --root <客户端根>
     python nk.py scan    --scene intl-pc --root <客户端根> --out build/

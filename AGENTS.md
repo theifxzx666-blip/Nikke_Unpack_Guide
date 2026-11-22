@@ -50,6 +50,7 @@ python -c "import UnityPy, zstandard, PIL, Crypto; print('ok')"   # 依赖自查
 - **不把「待验」当「已知」**往下推。矩阵表里标待验的格子，实测前不要引用。
 - **不在仓库里放二进制**：`.bundle` / `.cdb` / `.ndb` / `.pack` / `.lsc` / `.lss` / `.mpk` 都不入库。
 - 不写客户端内嵌常量（`StaticData.pack` 的派生密钥材料）。
+- **不把第三方成果写成自研。** 依赖、工具与参考资料统一登记在 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)；游戏自有格式（如 `NKDB`）不得表述为「自研」，参考他人交互或方案须注明来源与范围。
 
 ## 改动约定
 

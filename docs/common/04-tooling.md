@@ -252,7 +252,7 @@ PYTHONUTF8=1
 | NKDB 解密 | 已有可用实现 |
 | CIDX 解析加 dd 取件 | 已有可用实现，含断批优化 |
 | 键 diff 与 ID 集合差 | 已有可用实现，每期脚本各一份 |
-| 图片 / 模型 / Spine / 文本导出 | 已有可用实现，基于 UnityPy |
+| 图片 / 模型 / Spine / 文本导出 | 已有可用实现，基于 UnityPy（MIT，https://github.com/K0lb3/UnityPy） |
 | 三模式归档 | 半自动，命名与检查靠人眼 |
 | 联系表 | 每期手写脚本 |
 | 说明文档生成 | 手写 |
