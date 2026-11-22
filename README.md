@@ -133,6 +133,7 @@ Junction 无需管理员权限（2026-11-13 实测）。
 | [`docs/cn-pc/`](docs/cn-pc/README.md) | 国服 PC：清单至缓存的定位、明文缓存、NKAB 判据 |
 | [`docs/cn-android/`](docs/cn-android/README.md) | 国服安卓：UnityCache、明文 lss、与 PC 的差异 |
 | [`docs/common/`](docs/common/01-overview.md) | 六阶段、43 类键规律、落盘命名、工具契约、容器字节结构、取件算法 |
+| [`docs/09-资源类型最佳实践.md`](docs/09-资源类型最佳实践.md) | 按资源类型：适用场景、键判据、取件步骤、验收数字 |
 | [`docs/08-取件库客户端规格.md`](docs/08-取件库客户端规格.md) | 桌面客户端：选型、取件表数据模型、分期与实测问题；源码见 [`app/`](app/main.py) |
 | [`SKILL.md`](SKILL.md)、[`AGENTS.md`](AGENTS.md) | 技能入口、AI 操作规范 |
 
