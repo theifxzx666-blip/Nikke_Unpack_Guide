@@ -47,7 +47,7 @@ agent_created: true
     这两种会被静默吞掉，症状是「200 个键只跑了 198 个，且首行报查不到」。
 11. **「文案里没有」不等于「客户端没有」**。`.lss` 只有 Key/zh-CN 文案对，奖励数值在静态表
     （`RewardTable` 等，153 快照已解 654 张，见 `07_文本/任务与奖励/`）。判定某个数据「拿不到」之前，
-    必须先把静态表翻一遍，否则会把能做的功能写进 `unavailable`。
+    必须先把静态表翻一遍，否则会把能做的功能写进 `unavailable`（两服静态包链路见 [docs/common/静态数据包-两服解包.md](docs/common/静态数据包-两服解包.md)）。
 12. **立绘是 Spine，不是 Sprite 拼图**。`char_*_uc_tex.png` 是 Spine 图集贴图，
     `00/01/02/03` 是四张不同立绘而非四块拼图。按 atlas `bounds` 硬拼出来是散落碎片
     （反例见 `06_骨骼/待机/2B_c810_00/katana_test.png`）。正确路径：`_render.html` 走 Spine 渲染。
@@ -201,6 +201,7 @@ PC 取不到 `versionName`/`versionCode`，用文件指纹：各桶 `catalog.ndb
 | 国际服安卓 | [docs/intl-android/README.md](docs/intl-android/README.md) |
 | 国服 PC | [docs/cn-pc/README.md](docs/cn-pc/README.md) → [01-实测](docs/cn-pc/01-实测.md) |
 | 国服安卓 | [docs/cn-android/README.md](docs/cn-android/README.md) |
+| 静态包 / 数值 / 概率（国服+国际服） | [docs/common/静态数据包-两服解包.md](docs/common/静态数据包-两服解包.md) |
 | 容器字节结构 | [docs/common/容器-国际服.md](docs/common/容器-国际服.md) |
 | 取件算法 | [docs/common/取件-国际服.md](docs/common/取件-国际服.md) |
 | 43 类资源键规律 | [docs/common/02-catalog.md](docs/common/02-catalog.md) |

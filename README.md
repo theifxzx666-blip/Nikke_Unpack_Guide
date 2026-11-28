@@ -133,6 +133,7 @@ Junction 无需管理员权限（2026-11-13 实测）。
 | [`docs/cn-pc/`](docs/cn-pc/README.md) | 国服 PC：清单至缓存的定位、明文缓存、NKAB 判据 |
 | [`docs/cn-android/`](docs/cn-android/README.md) | 国服安卓：UnityCache、明文 lss、与 PC 的差异 |
 | [`docs/common/`](docs/common/01-overview.md) | 六阶段、43 类键规律、落盘命名、工具契约、容器字节结构、取件算法 |
+| [`docs/common/静态数据包-两服解包.md`](docs/common/静态数据包-两服解包.md) | 国服/国际服静态包：lobby 取信息、双层 AES、两服字段差异、概率表链路与边界 |
 | [`docs/09-资源类型最佳实践.md`](docs/09-资源类型最佳实践.md) | 按资源类型：适用场景、键判据、取件步骤、验收数字 |
 | [`docs/08-取件库客户端规格.md`](docs/08-取件库客户端规格.md) | 桌面客户端：选型、取件表数据模型、分期与实测问题；源码见 [`app/`](app/main.py) |
 | [`SKILL.md`](SKILL.md)、[`AGENTS.md`](AGENTS.md) | 技能入口、AI 操作规范 |
@@ -142,7 +143,7 @@ Junction 无需管理员权限（2026-11-13 实测）。
 | 项目 | 结论 |
 | :--- | :--- |
 | 低清 `(sd)` 缺块 | 国际服 `.idx` 覆盖 100% 物理字节，缺失块在物理上不存在，只能通过游戏内按需下载补齐 |
-| 静态表（关卡 / 数值） | 客户端内不含该文件。需经 lobby API 获取 pack 与 salt1 / salt2（随版本下发），再经双层 AES 解密得到 mpk。该链路脚本不在本仓库：它属于解包后的离线加工层，与客户端取件解耦，故此处仅登记方法与入口，不附具体路径 |
+| 静态表（关卡 / 数值） | 客户端内不含该文件。需经 lobby API 获取 pack 与 salt1 / salt2（随版本下发），再经双层 AES 解密得到 mpk。两服入口、字段口径与概率链路见 [`docs/common/静态数据包-两服解包.md`](docs/common/静态数据包-两服解包.md)。该链路脚本不在本仓库：属于解包后的离线加工层，此处仅登记方法与判据，不附具体路径 |
 | 格式变更 | 每个客户端版本应先行执行 `python tools/nk.py doctor ... --deep`；NKDB / CIDX / CBLB 的版本、长度、校验和任一项不符即直接报错，不会静默生成无效产物 |
 | 动态头像框 | 仅国服安卓可用：`icons-dynamic(hd)` 共 21 组、668 帧，原生 256²；国际服 `core` / `dp` 检索 `icons-dynamic` 为 0 命中。流程见 [`docs/cn-android/动态头像框-实测.md`](docs/cn-android/动态头像框-实测.md) |
 | 国服定位 | 清单与缓存路径之间不存在确定映射，必须建立对象名索引反查 |
